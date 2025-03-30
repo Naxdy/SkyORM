@@ -32,7 +32,23 @@ where
     }
 }
 
-pub(crate) enum BinaryExprOperand {
+pub struct BracketsExpr<T: PushToQuery>(T);
+
+impl<T: PushToQuery> BracketsExpr<T> {
+    pub(crate) fn new(inner: T) -> Self {
+        BracketsExpr(inner)
+    }
+}
+
+impl<T: PushToQuery> PushToQuery for BracketsExpr<T> {
+    fn push_to(self, builder: &mut QueryBuilder<'_, Any>) {
+        builder.push("(");
+        self.0.push_to(builder);
+        builder.push(")");
+    }
+}
+
+pub enum BinaryExprOperand {
     Equals,
     DoesNotEqual,
     Like,
@@ -66,7 +82,7 @@ impl Display for BinaryExprOperand {
     }
 }
 
-pub(crate) struct BinaryExpr<T, C>
+pub struct BinaryExpr<T, C>
 where
     T: PushToQuery,
     C: PushToQuery,
@@ -81,7 +97,7 @@ where
     T: PushToQuery,
     C: PushToQuery,
 {
-    pub fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
+    pub(crate) fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
         Self {
             a: left,
             b: right,

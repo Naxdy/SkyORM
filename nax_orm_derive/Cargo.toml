@@ -1,0 +1,15 @@
+[package]
+name = "nax_orm_derive"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+convert_case = "0.8.0"
+darling = "0.20.11"
+proc-macro-error2 = "2.0.1"
+proc-macro2 = "1.0.94"
+quote = "1.0.40"
+syn = "2.0.100"

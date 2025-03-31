@@ -12,4 +12,6 @@ pub trait Entity {
 
     /// The name of this entity's table in the database.
     const TABLE_NAME: &'static str;
+
+    const COLUMN_NAMES: &[&'static str];
 }

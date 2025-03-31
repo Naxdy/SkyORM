@@ -162,8 +162,8 @@ pub trait Column {
     }
 
     /// Parse a return value from a sqlx row into this column's rust type.
-    fn value_from_row(row: &AnyRow) -> Self::Type {
-        row.get(Self::full_column_name().to_string().as_str())
+    fn value_from_row(row: &AnyRow) -> Result<Self::Type, sqlx::Error> {
+        row.try_get(Self::full_column_name().to_string().as_str())
     }
 }
 
@@ -274,7 +274,7 @@ where
 {
 }
 
-pub trait RangeColumn: Column + Sized {
+pub trait OrderableColumn: Column + Sized {
     fn between(
         left: Self::Type,
         right: Self::Type,
@@ -284,9 +284,17 @@ pub trait RangeColumn: Column + Sized {
         left: Self::Type,
         right: Self::Type,
     ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+
+    fn gt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+
+    fn lt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+
+    fn geq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+
+    fn leq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 }
 
-impl<T> RangeColumn for T
+impl<T> OrderableColumn for T
 where
     T: Column,
     T::Type: PartialOrd + 'static,
@@ -319,6 +327,42 @@ where
                 BinaryExprOperand::And,
             ),
             BinaryExprOperand::NotBetween,
+        )
+        .into()
+    }
+
+    fn gt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+        BinaryExpr::new(
+            Self::full_column_name(),
+            QueryVariable(other),
+            BinaryExprOperand::Gt,
+        )
+        .into()
+    }
+
+    fn lt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+        BinaryExpr::new(
+            Self::full_column_name(),
+            QueryVariable(other),
+            BinaryExprOperand::Lt,
+        )
+        .into()
+    }
+
+    fn geq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+        BinaryExpr::new(
+            Self::full_column_name(),
+            QueryVariable(other),
+            BinaryExprOperand::Geq,
+        )
+        .into()
+    }
+
+    fn leq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+        BinaryExpr::new(
+            Self::full_column_name(),
+            QueryVariable(other),
+            BinaryExprOperand::Leq,
         )
         .into()
     }

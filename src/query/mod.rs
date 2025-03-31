@@ -59,6 +59,10 @@ pub enum BinaryExprOperand {
     NotIn,
     Between,
     NotBetween,
+    Gt,
+    Lt,
+    Geq,
+    Leq,
 }
 
 impl Display for BinaryExprOperand {
@@ -77,6 +81,10 @@ impl Display for BinaryExprOperand {
                 BinaryExprOperand::NotIn => "NOT IN",
                 BinaryExprOperand::Between => "BETWEEN",
                 BinaryExprOperand::NotBetween => "NOT BETWEEN",
+                BinaryExprOperand::Gt => ">",
+                BinaryExprOperand::Lt => "<",
+                BinaryExprOperand::Geq => ">=",
+                BinaryExprOperand::Leq => "<=",
             }
         )
     }

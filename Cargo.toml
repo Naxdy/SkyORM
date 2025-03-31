@@ -1,12 +1,45 @@
 [package]
-name = "nax-orm"
+name = "nax_orm"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-futures = "0.3.31"
+[workspace]
+members = [".", "nax_orm_derive", "nax_orm_tests"]
+
+[workspace.dependencies]
 sqlx = "0.8.3"
 
+[dependencies]
+futures = "0.3.31"
+nax_orm_derive = { version = "0.1.0", path = "nax_orm_derive" }
+sqlx.workspace = true
+
 [features]
-default = ["postgres"]
-postgres = ["sqlx/postgres"]
+default = []
+runtime-async-std = ["sqlx/runtime-async-std"]
+runtime-async-std-native-tls = ["sqlx/runtime-async-std-native-tls"]
+runtime-async-std-rustls = ["sqlx/runtime-async-std-rustls"]
+runtime-tokio = ["sqlx/runtime-tokio"]
+runtime-tokio-native-tls = ["sqlx/runtime-tokio-native-tls"]
+runtime-tokio-rustls = ["sqlx/runtime-tokio-rustls"]
+tls-native-tls = ["sqlx/tls-native-tls"]
+tls-none = ["sqlx/tls-none"]
+tls-rustls = ["sqlx/tls-rustls"]
+tls-rustls-aws-lc-rs = ["sqlx/tls-rustls-aws-lc-rs"]
+tls-rustls-ring = ["sqlx/tls-rustls-ring"]
+tls-rustls-ring-native-roots = ["sqlx/tls-rustls-ring-native-roots"]
+tls-rustls-ring-webpki = ["sqlx/tls-rustls-ring-webpki"]
+mysql  = ["sqlx/mysql"]
+postgres  = ["sqlx/postgres"]
+regexp  = ["sqlx/regexp"]
+rust_decimal  = ["sqlx/rust_decimal"]
+sqlite  = ["sqlx/sqlite"]
+sqlite-unbundled  = ["sqlx/sqlite-unbundled"]
+time  = ["sqlx/time"]
+uuid  = ["sqlx/uuid"]
+bigdecimal  = ["sqlx/bigdecimal"]
+bit-vec  = ["sqlx/bit-vec"]
+chrono  = ["sqlx/chrono"]
+ipnetwork = ["sqlx/ipnetwork"]
+mac_address = ["sqlx/mac_address"]
+all-databases = ["sqlx/all-databases"]

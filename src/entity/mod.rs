@@ -5,7 +5,9 @@ pub mod relation;
 use column::ComparableColumn;
 use model::Model;
 
-pub trait Entity {
+use crate::query::select::Select;
+
+pub trait Entity: Sized {
     type PrimaryKeyColumn: ComparableColumn<Entity = Self>;
 
     type Model: Model;
@@ -14,4 +16,8 @@ pub trait Entity {
     const TABLE_NAME: &'static str;
 
     const COLUMN_NAMES: &[&'static str];
+
+    fn find() -> Select<Self> {
+        Select::<Self>::new()
+    }
 }

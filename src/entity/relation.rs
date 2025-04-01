@@ -21,8 +21,7 @@ where
     R: Entity,
 {
     /// The column holding the foreign key to the other entity's primary key.
-    fn fk_column()
-    -> impl ComparableColumn<Entity = Self, Type = <R::PrimaryKeyColumn as Column>::Type>;
+    type FkColumn: ComparableColumn<Entity = Self, Type = <R::PrimaryKeyColumn as Column>::Type>;
 
     /// The relation type, i.e. how many other entities are expected to be on the other side.
     fn relation_type() -> RelationType;
@@ -36,8 +35,7 @@ where
     R: Entity,
 {
     /// The column on the other entity holding the foreign key to this entity's primary key.
-    fn inverse_fk_column()
-    -> impl ComparableColumn<Entity = R, Type = <Self::PrimaryKeyColumn as Column>::Type>;
+    type InverseFkColumn: ComparableColumn<Entity = R, Type = <Self::PrimaryKeyColumn as Column>::Type>;
 
     /// The relation type, i.e. how many other entities are expected to be on the other side.
     ///
@@ -51,10 +49,7 @@ where
     E: Related<R>,
     R: Entity,
 {
-    fn inverse_fk_column()
-    -> impl ComparableColumn<Entity = E, Type = <Self::PrimaryKeyColumn as Column>::Type> {
-        E::fk_column()
-    }
+    type InverseFkColumn = E::FkColumn;
 
     fn inverse_relation_type() -> InverseRelationType {
         match E::relation_type() {

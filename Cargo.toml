@@ -11,6 +11,7 @@ sqlx = "0.8.3"
 
 [dependencies]
 futures = "0.3.31"
+itertools = "0.14.0"
 nax_orm_derive = { version = "0.1.0", path = "nax_orm_derive" }
 sqlx.workspace = true
 

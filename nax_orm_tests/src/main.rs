@@ -1,11 +1,17 @@
-use nax_orm::entity::{Entity, column::Column, model::Model};
+use std::{thread, time::Duration};
+
+use nax_orm::entity::{
+    Entity,
+    column::{Column, ComparableColumn, OrderableColumn},
+    model::Model,
+};
 
 mod my_entity {
     use nax_orm::entity::relation::{Related, RelationType};
     use nax_orm_derive::DatabaseModel;
 
     #[derive(DatabaseModel)]
-    #[nax_orm(primary_key = id)]
+    #[nax_orm(primary_key = id, table = "entity")]
     pub struct Model {
         id: String,
         name: Option<String>,
@@ -13,10 +19,7 @@ mod my_entity {
     }
 
     impl Related<super::my_other_entity::Entity> for Entity {
-        fn fk_column()
-        -> impl nax_orm::entity::column::ComparableColumn<Entity = Self, Type = <<super::my_other_entity::Entity as nax_orm::entity::Entity>::PrimaryKeyColumn as nax_orm::entity::column::Column>::Type>{
-            columns::OtherEntityId
-        }
+        type FkColumn = columns::OtherEntityId;
 
         fn relation_type() -> nax_orm::entity::relation::RelationType {
             RelationType::OneToOne
@@ -31,7 +34,7 @@ mod my_other_entity {
     pub struct NewType(String);
 
     #[derive(DatabaseModel, Default)]
-    #[nax_orm(primary_key = id)]
+    #[nax_orm(primary_key = id, table = "other_entity")]
     pub struct Model {
         pub id: String,
         pub amount_killed: i32,
@@ -40,9 +43,22 @@ mod my_other_entity {
 }
 
 fn main() {
-    let model = my_other_entity::Model::default();
+    let q = my_entity::Entity::find()
+        .filter(my_entity::columns::Name::between(
+            Some("August".to_string()),
+            Some("Gustav".to_string()),
+        ))
+        .where_inverse_relation(my_other_entity::columns::AmountKilled::gt(5));
 
-    let model = model.into_active();
+    let oq = my_other_entity::Entity::find()
+        .filter(
+            my_other_entity::columns::AmountKilled::lt(69)
+                .or(my_other_entity::columns::OtherAmountKilled::gt(51)),
+        )
+        .where_relation(my_entity::columns::Name::eq(Some(
+            "August Heinrich".to_string(),
+        )));
 
-    println!("{:?}", my_other_entity::Entity::COLUMN_NAMES);
+    println!("Q: {}", q.query());
+    println!("OQ: {}", oq.query());
 }

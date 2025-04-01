@@ -50,7 +50,7 @@ where
     }
 }
 
-pub trait Model {
+pub trait Model: Sized {
     type Entity: Entity;
     type ActiveModel: ActiveModel;
 

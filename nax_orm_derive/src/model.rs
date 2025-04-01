@@ -179,11 +179,11 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
                 fn from_row(row: &::nax_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::nax_orm::sqlx::Error> {
                     use ::nax_orm::entity::column::Column;
 
-                    Self {
+                    Ok(Self {
                         #(
                             #column_field_assignments
                         )*
-                    }
+                    })
                 }
 
                 fn into_active(self) -> Self::ActiveModel {

@@ -65,7 +65,7 @@ impl Display for ColumnName {
 }
 
 impl PushToQuery for ColumnName {
-    fn push_to(self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
+    fn push_to(&mut self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
         builder.push(self.to_string());
     }
 }
@@ -137,14 +137,14 @@ where
     Q: PushToQuery,
     E: Entity,
 {
-    fn push_to(self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
+    fn push_to(&mut self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
         self.inner.push_to(builder)
     }
 }
 
 pub trait Column {
     /// The underlying rust type of this column.
-    type Type: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any>;
+    type Type: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any> + Clone;
 
     /// The entity that this column belongs to.
     type Entity: Entity;

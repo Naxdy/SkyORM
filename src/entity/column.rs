@@ -8,6 +8,7 @@ use crate::{
 };
 use sqlx::{Any, Decode, Encode, Row, Type, any::AnyRow};
 
+/// A struct that represents the name of a column on a particular table.
 pub struct ColumnName {
     table_or_alias: Option<String>,
     column_name: String,
@@ -19,6 +20,16 @@ impl ColumnName {
             table_or_alias: Some(table_or_alias),
             column_name,
         }
+    }
+
+    /// The name of the column within the database.
+    pub fn column_name(&self) -> &String {
+        &self.column_name
+    }
+
+    /// The name of the table within the database that this column is part of.
+    pub fn table_or_alias(&self) -> Option<&String> {
+        self.table_or_alias.as_ref()
     }
 }
 

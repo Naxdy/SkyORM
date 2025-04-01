@@ -1,9 +1,6 @@
-use std::{thread, time::Duration};
-
 use nax_orm::entity::{
     Entity,
-    column::{Column, ComparableColumn, OrderableColumn},
-    model::Model,
+    column::{ComparableColumn, OrderableColumn},
 };
 
 mod my_entity {
@@ -29,9 +26,6 @@ mod my_entity {
 
 mod my_other_entity {
     use nax_orm_derive::DatabaseModel;
-
-    #[derive(Default)]
-    pub struct NewType(String);
 
     #[derive(DatabaseModel, Default)]
     #[nax_orm(primary_key = id, table = "other_entity")]

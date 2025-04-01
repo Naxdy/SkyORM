@@ -1,6 +1,4 @@
-use std::ops::Deref;
-
-use sqlx::{Any, Decode, Encode, Row, Type, any::AnyRow};
+use sqlx::{Any, Decode, Encode, Type, any::AnyRow};
 
 use super::Entity;
 

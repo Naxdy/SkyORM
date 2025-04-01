@@ -1,8 +1,7 @@
 use convert_case::{Case, Casing};
 use darling::{FromDeriveInput, FromField, ast::Data};
 use proc_macro::TokenStream;
-use proc_macro_error2::{Diagnostic, abort, emit_error, emit_warning};
-use proc_macro2::Span;
+use proc_macro_error2::{abort, emit_error};
 use quote::quote;
 use syn::{DeriveInput, Ident, Type, Visibility, parse_macro_input};
 

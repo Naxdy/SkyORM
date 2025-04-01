@@ -47,7 +47,7 @@ impl ColumnName {
         }
     }
 
-    pub fn new_with_table_or_alias(table_or_alias: String, column_name: String) -> Self {
+    pub(crate) fn new_with_table_or_alias(table_or_alias: String, column_name: String) -> Self {
         Self {
             table_or_alias: Some(table_or_alias),
             column_name,
@@ -161,13 +161,15 @@ pub trait Column {
         )
     }
 
-    /// Parse a return value from a sqlx row into this column's rust type.
+    /// Try to parse a return value from a sqlx row into this column's rust type.
     fn value_from_row(row: &AnyRow) -> Result<Self::Type, sqlx::Error> {
         row.try_get(Self::full_column_name().to_string().as_str())
     }
 }
 
 pub trait NullableColumn: Column + Sized {
+    /// Check whether this column is `null`. Convenient shorthand for calling
+    /// [`eq`](ComparableColumn::eq) with [`None`].
     fn is_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
@@ -176,6 +178,8 @@ pub trait NullableColumn: Column + Sized {
         .into()
     }
 
+    /// Check whether this column is _not_ `null` (whether it has any value stored in it).
+    /// Convenient shorthand for calling [`not_eq`](ComparableColumn::not_eq) with [`None`].
     fn is_not_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
@@ -188,14 +192,22 @@ pub trait NullableColumn: Column + Sized {
 impl<T, Type> NullableColumn for T where T: Column<Type = Option<Type>> {}
 
 pub trait ComparableColumn: Column + Sized {
+    /// Check whether this column equals some other value. If [`Type`](Column::Type) is an
+    /// [`Option`], supplying [`None`] is functionally equivalent to calling
+    /// [`is_null`](NullableColumn::is_null).
     fn eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether this column does _not_ equal some other value. If [`Type`](Column::Type) is
+    /// an [`Option`], supplying [`None`] is functionally equivalent to calling
+    /// [`is_not_null`](NullableColumn::is_not_null).
     fn not_eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column occurs in some collection.
     fn is_in(
         other: impl IntoIterator<Item = Self::Type>,
     ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column does _not_ occur in some collection.
     fn is_not_in(
         other: impl IntoIterator<Item = Self::Type>,
     ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
@@ -275,22 +287,28 @@ where
 }
 
 pub trait OrderableColumn: Column + Sized {
+    /// Check whether the value of this column falls inside the range of `left` and `right`.
     fn between(
         left: Self::Type,
         right: Self::Type,
     ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column falls outside the range of `left` and `right`.
     fn not_between(
         left: Self::Type,
         right: Self::Type,
     ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column is greater than `other`.
     fn gt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column is less than than `other`.
     fn lt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column is greater than or equal to `other`.
     fn geq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
+    /// Check whether the value of this column is less than or equal to`other`.
     fn leq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 }
 

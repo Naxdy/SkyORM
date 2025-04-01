@@ -8,45 +8,12 @@ use crate::{
 };
 use sqlx::{Any, Decode, Encode, Row, Type, any::AnyRow};
 
-pub enum ColumnExprOperand {
-    Equals,
-    DoesNotEqual,
-    Like,
-    ILike,
-    IsNull,
-    IsNotNull,
-}
-
-impl Display for ColumnExprOperand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Equals => "=",
-                Self::DoesNotEqual => "!=",
-                Self::Like => "LIKE",
-                Self::ILike => "ILIKE",
-                Self::IsNull => "IS NULL",
-                Self::IsNotNull => "IS NOT NULL",
-            }
-        )
-    }
-}
-
 pub struct ColumnName {
     table_or_alias: Option<String>,
     column_name: String,
 }
 
 impl ColumnName {
-    pub fn new(column_name: String) -> Self {
-        Self {
-            table_or_alias: None,
-            column_name,
-        }
-    }
-
     pub(crate) fn new_with_table_or_alias(table_or_alias: String, column_name: String) -> Self {
         Self {
             table_or_alias: Some(table_or_alias),
@@ -84,6 +51,7 @@ where
     Q: PushToQuery,
     E: Entity,
 {
+    /// Chain another [`EntityConditionExpr`] using an `AND` statement.
     pub fn and<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
@@ -97,6 +65,7 @@ where
         }
     }
 
+    /// Chain another [`EntityConditionExpr`] using an `OR` statement.
     pub fn or<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
@@ -110,7 +79,10 @@ where
         }
     }
 
-    /// Wrap the query into brackets `()`.
+    /// Wrap the current condition into brackets `()`.
+    ///
+    /// Note that calling [`Select::filter`](crate::query::select::Select::filter) will
+    /// automatically place the passed condition into brackets already.
     pub fn brackets(self) -> EntityConditionExpr<BracketsExpr<Q>, E> {
         EntityConditionExpr {
             marker: PhantomData,
@@ -168,8 +140,9 @@ pub trait Column {
 }
 
 pub trait NullableColumn: Column + Sized {
-    /// Check whether this column is `null`. Convenient shorthand for calling
-    /// [`eq`](ComparableColumn::eq) with [`None`].
+    /// Check whether this column is `null`.
+    ///
+    /// SQL: `column IS NULL`
     fn is_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
@@ -179,7 +152,8 @@ pub trait NullableColumn: Column + Sized {
     }
 
     /// Check whether this column is _not_ `null` (whether it has any value stored in it).
-    /// Convenient shorthand for calling [`not_eq`](ComparableColumn::not_eq) with [`None`].
+    ///
+    /// SQL: `column IS NOT NULL`
     fn is_not_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
@@ -192,14 +166,18 @@ pub trait NullableColumn: Column + Sized {
 impl<T, Type> NullableColumn for T where T: Column<Type = Option<Type>> {}
 
 pub trait ComparableColumn: Column + Sized {
-    /// Check whether this column equals some other value. If [`Type`](Column::Type) is an
-    /// [`Option`], supplying [`None`] is functionally equivalent to calling
-    /// [`is_null`](NullableColumn::is_null).
+    /// Check whether this column equals some other value.
+    ///
+    /// Note that supplying [`None`] in case [`Type`](Column::Type) is an [`Option`]
+    /// is _not_ equivalent to calling [`is_null`](NullableColumn::is_null), because
+    /// this call will instead produce the SQL `column = NULL`, as opposed to `column IS NULL`.
     fn eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
-    /// Check whether this column does _not_ equal some other value. If [`Type`](Column::Type) is
-    /// an [`Option`], supplying [`None`] is functionally equivalent to calling
-    /// [`is_not_null`](NullableColumn::is_not_null).
+    /// Check whether this column does _not_ equal some other value.
+    ///
+    /// Note that supplying [`None`] in case [`Type`](Column::Type) is an [`Option`]
+    /// is _not_ equivalent to calling [`is_not_null`](NullableColumn::is_not_null), because
+    /// this call will instead produce the SQL `column != NULL`, as opposed to `column IS NOT NULL`.
     fn not_eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
 
     /// Check whether the value of this column occurs in some collection.

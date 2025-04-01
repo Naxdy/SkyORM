@@ -35,7 +35,10 @@ where
 {
     fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
         builder.push("(");
-        self.iter_mut().for_each(|e| {
+        self.iter_mut().enumerate().for_each(|(i, e)| {
+            if i > 0 {
+                builder.push(", ");
+            }
             e.push_to(builder);
         });
         builder.push(")");

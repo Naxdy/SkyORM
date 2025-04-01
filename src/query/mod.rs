@@ -4,9 +4,14 @@ use std::{fmt::Display, ops::DerefMut};
 
 use sqlx::{Any, Encode, QueryBuilder, Type};
 
+/// This trait represents anything that can be pushed into a [`QueryBuilder`], i.e. any kind of
+/// query fragment, like a condition or a list of values.
 pub trait PushToQuery {
-    /// Push the object into a query builder. It is not safe to call this method more than once per
-    /// object.
+    /// Push the object into a query builder.
+    ///
+    /// Note that since this takes a mutable reference to `self`, it should **not** be assumed
+    /// to be idempotent, that is to say multiple calls to `push_to` on the same [`PushToQuery`]
+    /// can (and probably will) produce different results.
     fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>);
 }
 
@@ -16,7 +21,7 @@ impl PushToQuery for Box<dyn PushToQuery> {
     }
 }
 
-pub struct QueryVariable<T>(pub(crate) T)
+pub(crate) struct QueryVariable<T>(pub(crate) T)
 where
     T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone;
 
@@ -45,7 +50,7 @@ where
     }
 }
 
-pub struct BracketsExpr<T: PushToQuery>(T);
+pub(crate) struct BracketsExpr<T: PushToQuery>(T);
 
 impl<T: PushToQuery> BracketsExpr<T> {
     pub(crate) fn new(inner: T) -> Self {
@@ -61,7 +66,7 @@ impl<T: PushToQuery> PushToQuery for BracketsExpr<T> {
     }
 }
 
-pub enum BinaryExprOperand {
+pub(crate) enum BinaryExprOperand {
     Equals,
     DoesNotEqual,
     Like,
@@ -103,7 +108,10 @@ impl Display for BinaryExprOperand {
     }
 }
 
-pub struct BinaryExpr<T, C>
+/// A binary SQL expression, glued together with an operator.
+///
+/// Example: `left-side [operator] right-side`
+pub(crate) struct BinaryExpr<T, C>
 where
     T: PushToQuery,
     C: PushToQuery,

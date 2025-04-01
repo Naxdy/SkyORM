@@ -37,6 +37,8 @@ impl PushToQuery for ColumnName {
     }
 }
 
+/// A struct that represents a conditional expression (such as `=`, `>`, `IS NULL`) on a given
+/// entity `E`.
 pub struct EntityConditionExpr<Q, E>
 where
     Q: PushToQuery,
@@ -55,7 +57,7 @@ where
     pub fn and<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
-    ) -> EntityConditionExpr<BinaryExpr<Q, EntityConditionExpr<OQ, E>>, E>
+    ) -> EntityConditionExpr<impl PushToQuery, E>
     where
         OQ: PushToQuery,
     {
@@ -69,7 +71,7 @@ where
     pub fn or<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
-    ) -> EntityConditionExpr<BinaryExpr<Q, EntityConditionExpr<OQ, E>>, E>
+    ) -> EntityConditionExpr<impl PushToQuery, E>
     where
         OQ: PushToQuery,
     {
@@ -83,7 +85,7 @@ where
     ///
     /// Note that calling [`Select::filter`](crate::query::select::Select::filter) will
     /// automatically place the passed condition into brackets already.
-    pub fn brackets(self) -> EntityConditionExpr<BracketsExpr<Q>, E> {
+    pub fn brackets(self) -> EntityConditionExpr<impl PushToQuery, E> {
         EntityConditionExpr {
             marker: PhantomData,
             inner: BracketsExpr::new(self.inner),

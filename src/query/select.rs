@@ -32,6 +32,8 @@ where
         }
     }
 
+    /// Append a new `WHERE` condition using an `AND` statement as glue. The passed condition is
+    /// wrapped in `()` brackets.
     pub fn filter<Q>(mut self, condition: EntityConditionExpr<Q, T>) -> Self
     where
         Q: PushToQuery + 'static,
@@ -40,6 +42,9 @@ where
         self
     }
 
+    /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
+    /// columns of a related entity (the foreign key is on `R`). The passed condition is wrapped
+    /// in `()` brackets.
     pub fn where_relation<Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery + 'static,
@@ -56,6 +61,9 @@ where
         self
     }
 
+    /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
+    /// columns of an inversely related entity (the foreign key is on `T`). The passed condition is
+    /// wrapped in `()` brackets.
     pub fn where_inverse_relation<Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery + 'static,
@@ -72,6 +80,12 @@ where
         self
     }
 
+    /// Return the raw SQL query of this statement. Note that the returned query is
+    /// backend-agnostic, i.e. query parameters will be substituted with `?` instead of `$1` (in
+    /// the case of postgres).
+    ///
+    /// This is mainly useful for debugging purposes, and not intended to produce queries to be run
+    /// on an actual database.
     pub fn query(mut self) -> String {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);

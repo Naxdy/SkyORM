@@ -4,7 +4,7 @@ use nax_orm::entity::{
 };
 
 mod my_entity {
-    use nax_orm::entity::relation::{Related, RelationType};
+    use nax_orm::entity::relation::{OneToOne, Related};
     use nax_orm_derive::DatabaseModel;
 
     #[derive(DatabaseModel)]
@@ -17,10 +17,7 @@ mod my_entity {
 
     impl Related<super::my_other_entity::Entity> for Entity {
         type FkColumn = columns::OtherEntityId;
-
-        fn relation_type() -> nax_orm::entity::relation::RelationType {
-            RelationType::OneToOne
-        }
+        type RelationType = OneToOne;
     }
 }
 

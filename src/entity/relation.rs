@@ -1,21 +1,55 @@
+use sealed::Sealed;
+
 use super::{
     Entity,
     column::{Column, ComparableColumn},
 };
 
-pub enum RelationType {
-    OneToOne,
-    ManyToOne,
+/// A one-to-one relation.
+#[derive(Default, Clone, Copy)]
+pub struct OneToOne;
+
+/// A many-to-one relation (owning side).
+#[derive(Default, Clone, Copy)]
+pub struct ManyToOne;
+
+/// A one-to-many relation (non-owning side).
+#[derive(Default, Clone, Copy)]
+pub struct OneToMany;
+
+impl Relation for OneToOne {
+    type InverseEquivalent = Self;
 }
 
-pub enum InverseRelationType {
-    OneToOne,
-    OneToMany,
+impl InverseRelation for OneToOne {
+    type ForwardEquivalent = Self;
+}
+
+impl Relation for ManyToOne {
+    type InverseEquivalent = OneToMany;
+}
+
+impl InverseRelation for OneToMany {
+    type ForwardEquivalent = ManyToOne;
+}
+
+/// Trait defining the owning side of a relation.
+///
+/// Sealed trait, not meant for manual implementation.
+pub trait Relation: Sealed {
+    type InverseEquivalent: InverseRelation;
+}
+
+/// Trait defining the non-owning side of a relation.
+///
+/// Sealed trait, not meant for manual implementation.
+pub trait InverseRelation: Sealed {
+    type ForwardEquivalent: Relation;
 }
 
 /// The owning side (= the side with the foreign key stored in its table) of a database relation.
 ///
-/// Implementing this trait will automatically implement [`InverseRelated`] for the opposite side.
+/// Implementing this trait will automatically implement [`InverseRelated`] for the other side.
 pub trait Related<R>: Entity
 where
     R: Entity,
@@ -24,12 +58,12 @@ where
     type FkColumn: ComparableColumn<Entity = Self, Type = <R::PrimaryKeyColumn as Column>::Type>;
 
     /// The relation type, i.e. how many other entities are expected to be on the other side.
-    fn relation_type() -> RelationType;
+    type RelationType: Relation;
 }
 
 /// The non-owning or inverse side of a database relation.
 ///
-/// This trait is auto implemented for the opposite sides whenever [`Related`] is implemented.
+/// This trait is auto implemented for the opposing sides whenever [`Related`] is implemented.
 pub trait InverseRelated<R>: Entity
 where
     R: Entity,
@@ -41,7 +75,7 @@ where
     ///
     /// Note that this is meant to be from the perspective of _this_ entity, so if the other entity
     /// has a ManyToOne relation, this would be a OneToMany relation.
-    fn inverse_relation_type() -> InverseRelationType;
+    type InverseRelationType: InverseRelation;
 }
 
 impl<E, R> InverseRelated<E> for R
@@ -50,11 +84,15 @@ where
     R: Entity,
 {
     type InverseFkColumn = E::FkColumn;
+    type InverseRelationType = <E::RelationType as Relation>::InverseEquivalent;
+}
 
-    fn inverse_relation_type() -> InverseRelationType {
-        match E::relation_type() {
-            RelationType::OneToOne => InverseRelationType::OneToOne,
-            RelationType::ManyToOne => InverseRelationType::OneToMany,
-        }
-    }
+mod sealed {
+    use super::{ManyToOne, OneToMany, OneToOne};
+
+    pub trait Sealed {}
+
+    impl Sealed for OneToOne {}
+    impl Sealed for OneToMany {}
+    impl Sealed for ManyToOne {}
 }

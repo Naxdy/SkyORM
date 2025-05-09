@@ -1516,36 +1516,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sky_orm"
-version = "0.1.0"
-dependencies = [
- "futures",
- "itertools 0.14.0",
- "sky_orm_derive",
- "sqlx",
-]
-
-[[package]]
-name = "sky_orm_derive"
-version = "0.1.0"
-dependencies = [
- "convert_case",
- "darling",
- "proc-macro-error2",
- "proc-macro2",
- "quote",
- "syn 2.0.100",
-]
-
-[[package]]
-name = "sky_orm_tests"
-version = "0.1.0"
-dependencies = [
- "sky_orm",
- "sky_orm_derive",
-]
-
-[[package]]
 name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2339,6 +2309,36 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
+
+[[package]]
+name = "sky_orm"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "itertools 0.14.0",
+ "sky_orm_macros",
+ "sqlx",
+]
+
+[[package]]
+name = "sky_orm_macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case",
+ "darling",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
+name = "sky_orm_tests"
+version = "0.1.0"
+dependencies = [
+ "sky_orm",
+ "sky_orm_macros",
+]
 
 [[package]]
 name = "slab"

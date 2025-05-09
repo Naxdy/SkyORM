@@ -5,7 +5,7 @@ use sky_orm::entity::{
 
 mod my_entity {
     use sky_orm::entity::relation::{OneToOne, Related};
-    use sky_orm_derive::DatabaseModel;
+    use sky_orm_macros::DatabaseModel;
 
     #[derive(DatabaseModel)]
     #[sky_orm(primary_key = id, table = "entity")]
@@ -22,7 +22,7 @@ mod my_entity {
 }
 
 mod my_other_entity {
-    use sky_orm_derive::DatabaseModel;
+    use sky_orm_macros::DatabaseModel;
 
     #[derive(DatabaseModel, Default)]
     #[sky_orm(primary_key = id, table = "other_entity")]

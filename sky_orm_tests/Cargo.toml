@@ -6,4 +6,4 @@ repository.workspace = true
 
 [dependencies]
 sky_orm.workspace = true
-sky_orm_derive.workspace = true
+sky_orm_macros.workspace = true

@@ -1,5 +1,7 @@
 use sqlx::{Any, Decode, Encode, Type, any::AnyRow};
 
+use crate::query::parse::ParseFromRow;
+
 use super::Entity;
 
 #[derive(Clone)]
@@ -48,11 +50,9 @@ where
     }
 }
 
-pub trait Model: Sized {
+pub trait Model: ParseFromRow + Sized {
     type Entity: Entity;
     type ActiveModel: ActiveModel;
-
-    fn from_row(row: &AnyRow) -> Result<Self, sqlx::Error>;
 
     fn into_active(self) -> Self::ActiveModel;
 }

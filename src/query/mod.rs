@@ -1,3 +1,4 @@
+pub mod parse;
 pub mod select;
 
 use std::{fmt::Display, ops::DerefMut};

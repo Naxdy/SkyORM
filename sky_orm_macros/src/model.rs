@@ -1,9 +1,9 @@
 use convert_case::{Case, Casing};
 use darling::{FromDeriveInput, FromField, ast::Data};
-use proc_macro::TokenStream;
 use proc_macro_error2::{abort, emit_error};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Ident, Type, Visibility, parse_macro_input};
+use syn::{DeriveInput, Ident, Type, Visibility, parse2};
 
 #[derive(FromField, Debug, Clone)]
 #[darling(attributes(sky_orm))]
@@ -33,11 +33,11 @@ struct TargetColumn {
 }
 
 pub fn derive_database_model(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    let input: DeriveInput = parse2(input).expect("Failed to parse derive input");
 
     let target = match DeriveModelTarget::from_derive_input(&input) {
         Ok(r) => r,
-        Err(e) => return e.write_errors().into(),
+        Err(e) => return e.write_errors(),
     };
 
     let Some(struct_data) = target.data.take_struct() else {
@@ -175,7 +175,17 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
                 type Entity = Entity;
                 type ActiveModel = ActiveModel;
 
-                fn from_row(row: &::sky_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::sky_orm::sqlx::Error> {
+                fn into_active(self) -> Self::ActiveModel {
+                    ActiveModel {
+                        #(
+                            #active_model_field_assignments
+                        )*
+                    }
+                }
+            }
+
+            impl ::sky_orm::query::parse::ParseFromRow for #model_ident {
+                fn parse_from_row(row: &::sky_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::sky_orm::sqlx::Error> {
                     use ::sky_orm::entity::column::Column;
 
                     Ok(Self {
@@ -183,14 +193,6 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
                             #column_field_assignments
                         )*
                     })
-                }
-
-                fn into_active(self) -> Self::ActiveModel {
-                    ActiveModel {
-                        #(
-                            #active_model_field_assignments
-                        )*
-                    }
                 }
             }
         }
@@ -229,5 +231,4 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
 
         #columns_module
     }
-    .into()
 }

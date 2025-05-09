@@ -5,7 +5,7 @@ edition.workspace = true
 repository.workspace = true
 
 [workspace]
-members = [".", "sky_orm_macros", "sky_orm_tests"]
+members = [".", "sky_orm_macros", "sky_orm_sqlparse", "sky_orm_tests"]
 
 [workspace.package]
 version = "0.1.0"

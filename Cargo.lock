@@ -1516,17 +1516,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "nax_orm"
+name = "sky_orm"
 version = "0.1.0"
 dependencies = [
  "futures",
  "itertools 0.14.0",
- "nax_orm_derive",
+ "sky_orm_derive",
  "sqlx",
 ]
 
 [[package]]
-name = "nax_orm_derive"
+name = "sky_orm_derive"
 version = "0.1.0"
 dependencies = [
  "convert_case",
@@ -1538,11 +1538,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "nax_orm_tests"
+name = "sky_orm_tests"
 version = "0.1.0"
 dependencies = [
- "nax_orm",
- "nax_orm_derive",
+ "sky_orm",
+ "sky_orm_derive",
 ]
 
 [[package]]

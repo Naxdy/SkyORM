@@ -6,7 +6,7 @@ use quote::quote;
 use syn::{DeriveInput, Ident, Type, Visibility, parse_macro_input};
 
 #[derive(FromField, Debug, Clone)]
-#[darling(attributes(nax_orm))]
+#[darling(attributes(sky_orm))]
 struct DeriveModelField {
     ident: Option<Ident>,
     ty: Type,
@@ -15,7 +15,7 @@ struct DeriveModelField {
 }
 
 #[derive(FromDeriveInput)]
-#[darling(attributes(nax_orm))]
+#[darling(attributes(sky_orm))]
 struct DeriveModelTarget {
     ident: Ident,
     table: Option<String>,
@@ -83,7 +83,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
 
         abort! {
             duplicate.field_ident.span(), "Duplicate column definition \"{}\"", duplicate.db_name;
-            note = "Columns must have unique names, if necessary use the #[nax_orm(column = \"my_column_name\")] attribute to specify a unique name.";
+            note = "Columns must have unique names, if necessary use the #[sky_orm(column = \"my_column_name\")] attribute to specify a unique name.";
         }
     }
 
@@ -96,7 +96,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
     }) else {
         abort! {
             input, "Missing primary key.";
-            note = "You need to specify which column is supposed to act as the primary key, using #[nax_orm(primary_key = field_name)]";
+            note = "You need to specify which column is supposed to act as the primary key, using #[sky_orm(primary_key = field_name)]";
         }
     };
 
@@ -109,7 +109,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
             quote! {
                 pub struct #struct_name;
 
-                impl ::nax_orm::entity::column::Column for #struct_name {
+                impl ::sky_orm::entity::column::Column for #struct_name {
                     type Type = #ty;
                     type Entity = super::Entity;
                     const NAME: &'static str = #db_name;
@@ -138,7 +138,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
         quote! {
             pub struct Entity;
 
-            impl ::nax_orm::entity::Entity for Entity {
+            impl ::sky_orm::entity::Entity for Entity {
                 type PrimaryKeyColumn = columns::#primary_key_struct_ident;
 
                 type Model = #model_ident;
@@ -166,17 +166,17 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
             let ident = &e.field_ident;
 
             quote! {
-                #ident: ::nax_orm::entity::model::ActiveModelValue::Unchanged(self.#ident),
+                #ident: ::sky_orm::entity::model::ActiveModelValue::Unchanged(self.#ident),
             }
         });
 
         quote! {
-            impl ::nax_orm::entity::model::Model for #model_ident {
+            impl ::sky_orm::entity::model::Model for #model_ident {
                 type Entity = Entity;
                 type ActiveModel = ActiveModel;
 
-                fn from_row(row: &::nax_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::nax_orm::sqlx::Error> {
-                    use ::nax_orm::entity::column::Column;
+                fn from_row(row: &::sky_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::sky_orm::sqlx::Error> {
+                    use ::sky_orm::entity::column::Column;
 
                     Ok(Self {
                         #(
@@ -203,7 +203,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
             let vis = &e.field_vis;
 
             quote! {
-                #vis #ident: ::nax_orm::entity::model::ActiveModelValue<#ty>,
+                #vis #ident: ::sky_orm::entity::model::ActiveModelValue<#ty>,
             }
         });
 
@@ -214,7 +214,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
                 )*
             }
 
-            impl ::nax_orm::entity::model::ActiveModel for ActiveModel {
+            impl ::sky_orm::entity::model::ActiveModel for ActiveModel {
                 type Model = #model_ident;
             }
         }

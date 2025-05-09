@@ -1,18 +1,27 @@
 [package]
-name = "nax_orm"
-version = "0.1.0"
-edition = "2024"
+name = "sky_orm"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
 
 [workspace]
-members = [".", "nax_orm_derive", "nax_orm_tests"]
+members = [".", "sky_orm_macros", "sky_orm_tests"]
+
+[workspace.package]
+version = "0.1.0"
+repository = "https://github.com/Naxdy/SkyORM"
+edition = "2024"
 
 [workspace.dependencies]
+sky_orm_macros = { version = "0.1.0", path = "./sky_orm_macros"}
+sky_orm_tests = { version = "0.1.0", path = "./sky_orm_tests"}
+sky_orm = { version = "0.1.0", path = "."}
 sqlx = "0.8.3"
 
 [dependencies]
 futures = "0.3.31"
 itertools = "0.14.0"
-nax_orm_derive = { version = "0.1.0", path = "nax_orm_derive" }
+sky_orm_derive = { version = "0.1.0", path = "sky_orm_derive" }
 sqlx.workspace = true
 
 [features]

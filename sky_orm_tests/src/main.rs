@@ -1,14 +1,14 @@
-use nax_orm::entity::{
+use sky_orm::entity::{
     Entity,
     column::{ComparableColumn, OrderableColumn},
 };
 
 mod my_entity {
-    use nax_orm::entity::relation::{OneToOne, Related};
-    use nax_orm_derive::DatabaseModel;
+    use sky_orm::entity::relation::{OneToOne, Related};
+    use sky_orm_derive::DatabaseModel;
 
     #[derive(DatabaseModel)]
-    #[nax_orm(primary_key = id, table = "entity")]
+    #[sky_orm(primary_key = id, table = "entity")]
     pub struct Model {
         id: String,
         name: Option<String>,
@@ -22,10 +22,10 @@ mod my_entity {
 }
 
 mod my_other_entity {
-    use nax_orm_derive::DatabaseModel;
+    use sky_orm_derive::DatabaseModel;
 
     #[derive(DatabaseModel, Default)]
-    #[nax_orm(primary_key = id, table = "other_entity")]
+    #[sky_orm(primary_key = id, table = "other_entity")]
     pub struct Model {
         pub id: String,
         pub amount_killed: i32,

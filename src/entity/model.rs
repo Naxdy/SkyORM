@@ -1,4 +1,4 @@
-use sqlx::{Any, Decode, Encode, Type, any::AnyRow};
+use sqlx::{Any, Decode, Encode, Type};
 
 use crate::query::parse::ParseFromRow;
 

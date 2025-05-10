@@ -46,15 +46,17 @@ where
     /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
     /// columns of a related entity (the foreign key is on `R`). The passed condition is wrapped
     /// in `()` brackets.
-    pub fn where_relation<Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
+    pub fn where_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery + 'static,
-        R: Related<T> + 'static,
-        T: InverseRelated<R>,
+        R: Related<T, C> + 'static,
+        T: InverseRelated<R, C>,
+        C: Column<Entity = R, Type = <T::PrimaryKeyColumn as Column>::Type>,
+        <T::PrimaryKeyColumn as Column>::Type: PartialEq,
     {
         self.conditions.push(Rc::new(condition));
         self.conditions.push(Rc::new(BinaryExpr::new(
-            <R::FkColumn as Column>::full_column_name(),
+            C::full_column_name(),
             <T::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
         )));
@@ -65,15 +67,17 @@ where
     /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
     /// columns of an inversely related entity (the foreign key is on `T`). The passed condition is
     /// wrapped in `()` brackets.
-    pub fn where_inverse_relation<Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
+    pub fn where_inverse_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery + 'static,
-        R: InverseRelated<T> + 'static,
-        T: Related<R>,
+        R: InverseRelated<T, C> + 'static,
+        T: Related<R, C>,
+        C: Column<Entity = T, Type = <R::PrimaryKeyColumn as Column>::Type>,
+        <R::PrimaryKeyColumn as Column>::Type: PartialEq,
     {
         self.conditions.push(Rc::new(condition));
         self.conditions.push(Rc::new(BinaryExpr::new(
-            <<T as Related<R>>::FkColumn as Column>::full_column_name(),
+            C::full_column_name(),
             <R::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
         )));

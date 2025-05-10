@@ -15,8 +15,7 @@ mod my_entity {
         other_entity_id: String,
     }
 
-    impl Related<super::my_other_entity::Entity> for Entity {
-        type FkColumn = columns::OtherEntityId;
+    impl Related<super::my_other_entity::Entity, columns::OtherEntityId> for Entity {
         type RelationType = OneToOne;
     }
 }

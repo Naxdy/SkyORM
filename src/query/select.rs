@@ -1,7 +1,8 @@
 use std::{marker::PhantomData, rc::Rc};
 
+use futures::{StreamExt, stream::FuturesUnordered};
 use itertools::Itertools;
-use sqlx::QueryBuilder;
+use sqlx::{AnyConnection, Executor, QueryBuilder};
 
 use crate::entity::{
     Entity,
@@ -9,7 +10,7 @@ use crate::entity::{
     relation::{InverseRelated, Related},
 };
 
-use super::{BinaryExpr, BinaryExprOperand, BracketsExpr, PushToQuery};
+use super::{BinaryExpr, BinaryExprOperand, BracketsExpr, PushToQuery, parse::ParseFromRow};
 
 pub struct Select<T>
 where
@@ -91,6 +92,33 @@ where
         self.push_to(&mut builder);
         builder.into_sql()
     }
+
+    /// Execute the query, returning a single result.
+    pub async fn one(&self, connection: &mut AnyConnection) -> Result<T::Model, sqlx::Error> {
+        let mut builder = QueryBuilder::new("");
+        self.push_to(&mut builder);
+        let result = connection.fetch_one(builder.build()).await?;
+        <T::Model as ParseFromRow>::parse_from_row(&result)
+    }
+
+    /// Execute the query, returning all results.
+    pub async fn many(&self, connection: &mut AnyConnection) -> Result<Vec<T::Model>, sqlx::Error> {
+        let mut builder = QueryBuilder::new("");
+        self.push_to(&mut builder);
+
+        let result = connection
+            .fetch(builder.build())
+            // TODO: check if this messes with `ORDER BY`
+            .collect::<FuturesUnordered<_>>()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        result
+            .iter()
+            .map(<T::Model as ParseFromRow>::parse_from_row)
+            .collect::<Result<Vec<_>, _>>()
+    }
 }
 
 impl<T> PushToQuery for Select<T>
@@ -114,9 +142,9 @@ where
             builder.push(e);
         });
 
-        let mut conditions = self.conditions.clone();
-
         if !self.conditions.is_empty() {
+            let mut conditions = self.conditions.clone();
+
             builder.push(" WHERE ");
             if self.conditions.len() == 1 {
                 BracketsExpr::new(conditions.pop().unwrap()).push_to(builder);

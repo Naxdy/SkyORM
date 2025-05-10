@@ -1,9 +1,9 @@
 [package]
-name = "sky_orm_tests"
+name = "sky-orm-tests"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
 
 [dependencies]
-sky_orm.workspace = true
-sky_orm_macros.workspace = true
+sky-orm.workspace = true
+sky-orm-macros.workspace = true

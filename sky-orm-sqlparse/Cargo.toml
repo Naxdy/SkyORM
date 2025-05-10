@@ -1,5 +1,5 @@
 [package]
-name = "sky_orm_sqlparse"
+name = "sky-orm-sqlparse"
 description = "Helper crate to assist in parsing SQL syntax, used in SkyORM."
 version.workspace = true
 repository.workspace = true

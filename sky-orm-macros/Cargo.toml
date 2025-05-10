@@ -1,5 +1,5 @@
 [package]
-name = "sky_orm_macros"
+name = "sky-orm-macros"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true

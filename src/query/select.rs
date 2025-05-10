@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, rc::Rc};
 
 use itertools::Itertools;
 use sqlx::QueryBuilder;
@@ -16,7 +16,7 @@ where
     T: Entity + 'static,
 {
     marker: PhantomData<T>,
-    conditions: Vec<Box<dyn PushToQuery>>,
+    conditions: Vec<Rc<dyn PushToQuery>>,
     additional_tables: Vec<String>,
 }
 
@@ -38,7 +38,7 @@ where
     where
         Q: PushToQuery + 'static,
     {
-        self.conditions.push(Box::new(condition));
+        self.conditions.push(Rc::new(condition));
         self
     }
 
@@ -51,8 +51,8 @@ where
         R: Related<T> + 'static,
         T: InverseRelated<R>,
     {
-        self.conditions.push(Box::new(condition));
-        self.conditions.push(Box::new(BinaryExpr::new(
+        self.conditions.push(Rc::new(condition));
+        self.conditions.push(Rc::new(BinaryExpr::new(
             <R::FkColumn as Column>::full_column_name(),
             <T::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
@@ -70,8 +70,8 @@ where
         R: InverseRelated<T> + 'static,
         T: Related<R>,
     {
-        self.conditions.push(Box::new(condition));
-        self.conditions.push(Box::new(BinaryExpr::new(
+        self.conditions.push(Rc::new(condition));
+        self.conditions.push(Rc::new(BinaryExpr::new(
             <<T as Related<R>>::FkColumn as Column>::full_column_name(),
             <R::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
@@ -81,12 +81,12 @@ where
     }
 
     /// Return the raw SQL query of this statement. Note that the returned query is
-    /// backend-agnostic, i.e. query parameters will be substituted with `?` instead of `$1` (in
+    /// backend-agnostic, e.g. query parameters will be substituted with `?` instead of `$1` (in
     /// the case of postgres).
     ///
     /// This is mainly useful for debugging purposes, and not intended to produce queries to be run
     /// on an actual database.
-    pub fn query(mut self) -> String {
+    pub fn query(&self) -> String {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
         builder.into_sql()
@@ -97,8 +97,9 @@ impl<T> PushToQuery for Select<T>
 where
     T: Entity + 'static,
 {
-    fn push_to(&mut self, builder: &mut sqlx::QueryBuilder<'_, sqlx::Any>) {
+    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, sqlx::Any>) {
         builder.push("SELECT ");
+
         T::COLUMN_NAMES.iter().enumerate().for_each(|(i, e)| {
             if i > 0 {
                 builder.push(", ");
@@ -113,26 +114,27 @@ where
             builder.push(e);
         });
 
+        let mut conditions = self.conditions.clone();
+
         if !self.conditions.is_empty() {
             builder.push(" WHERE ");
             if self.conditions.len() == 1 {
-                BracketsExpr::new(self.conditions.pop().unwrap()).push_to(builder);
+                BracketsExpr::new(conditions.pop().unwrap()).push_to(builder);
             } else {
                 let left: Box<dyn PushToQuery> =
-                    Box::new(BracketsExpr::new(self.conditions.pop().unwrap()));
+                    Box::new(BracketsExpr::new(conditions.pop().unwrap()));
                 let right: Box<dyn PushToQuery> =
-                    Box::new(BracketsExpr::new(self.conditions.pop().unwrap()));
+                    Box::new(BracketsExpr::new(conditions.pop().unwrap()));
                 let init = BinaryExpr::new(left, right, BinaryExprOperand::And);
-                let mut cond =
-                    self.conditions
-                        .drain(0..self.conditions.len())
-                        .fold(init, |acc, curr| {
-                            BinaryExpr::new(
-                                Box::new(acc),
-                                Box::new(BracketsExpr::new(curr)),
-                                BinaryExprOperand::And,
-                            )
-                        });
+                let cond = conditions
+                    .drain(0..self.conditions.len())
+                    .fold(init, |acc, curr| {
+                        BinaryExpr::new(
+                            Box::new(acc),
+                            Box::new(BracketsExpr::new(curr)),
+                            BinaryExprOperand::And,
+                        )
+                    });
                 cond.push_to(builder);
             };
         }

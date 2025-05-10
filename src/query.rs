@@ -1,24 +1,26 @@
 pub mod parse;
 pub mod select;
 
-use std::{fmt::Display, ops::DerefMut};
+use std::{fmt::Display, ops::Deref, rc::Rc};
 
 use sqlx::{Any, Encode, QueryBuilder, Type};
 
 /// This trait represents anything that can be pushed into a [`QueryBuilder`], i.e. any kind of
 /// query fragment, like a condition or a list of values.
 pub trait PushToQuery {
-    /// Push the object into a query builder.
-    ///
-    /// Note that since this takes a mutable reference to `self`, it should **not** be assumed
-    /// to be idempotent, that is to say multiple calls to `push_to` on the same [`PushToQuery`]
-    /// can (and probably will) produce different results.
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>);
+    /// Push the object's contents into a query builder.
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>);
 }
 
 impl PushToQuery for Box<dyn PushToQuery> {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
-        self.deref_mut().push_to(builder);
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+        self.deref().push_to(builder);
+    }
+}
+
+impl PushToQuery for Rc<dyn PushToQuery> {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+        self.deref().push_to(builder);
     }
 }
 
@@ -30,7 +32,7 @@ impl<T> PushToQuery for QueryVariable<T>
 where
     T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone,
 {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         builder.push_bind(self.0.clone());
     }
 }
@@ -39,9 +41,9 @@ impl<T> PushToQuery for Vec<QueryVariable<T>>
 where
     T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone,
 {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         builder.push("(");
-        self.iter_mut().enumerate().for_each(|(i, e)| {
+        self.iter().enumerate().for_each(|(i, e)| {
             if i > 0 {
                 builder.push(", ");
             }
@@ -60,7 +62,7 @@ impl<T: PushToQuery> BracketsExpr<T> {
 }
 
 impl<T: PushToQuery> PushToQuery for BracketsExpr<T> {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         builder.push("(");
         self.0.push_to(builder);
         builder.push(")");
@@ -141,7 +143,7 @@ where
     T: PushToQuery,
     C: PushToQuery,
 {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         self.a.push_to(builder);
         builder.push(format_args!(" {} ", self.operand));
         self.b.push_to(builder);
@@ -187,14 +189,14 @@ impl<T> PushToQuery for SingletonExpr<T>
 where
     T: PushToQuery,
 {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         self.inner.push_to(builder);
         builder.push(format_args!(" {}", self.operand));
     }
 }
 
 impl PushToQuery for String {
-    fn push_to(&mut self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
         builder.push(self);
     }
 }

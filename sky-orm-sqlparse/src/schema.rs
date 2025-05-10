@@ -7,6 +7,7 @@ pub struct SqlColumn {
     pub name: String,
     pub column_type: DataType,
     pub nullable: bool,
+    pub unique: bool,
 }
 
 impl From<&ColumnDef> for SqlColumn {
@@ -27,6 +28,21 @@ impl From<&ColumnDef> for SqlColumn {
                     }
                 })
                 .unwrap_or(true),
+            unique: value
+                .options
+                .iter()
+                .find_map(|e| {
+                    if let ColumnOption::Unique {
+                        is_primary: _,
+                        characteristics: _,
+                    } = e.option
+                    {
+                        Some(true)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(false),
         }
     }
 }

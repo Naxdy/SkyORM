@@ -1,10 +1,10 @@
 use sqlparser::{
-    ast::{ColumnOption, ObjectNamePart, Statement},
+    ast::Statement,
     dialect::SQLiteDialect,
     parser::{Parser, ParserError},
 };
 
-use crate::schema::{SqlColumn, SqlTable};
+use crate::schema::SqlTable;
 
 pub fn parse_create_table(query: &str) -> Result<SqlTable, ParserError> {
     let ast = Parser::parse_sql(&SQLiteDialect {}, query)?;
@@ -20,42 +20,7 @@ pub fn parse_create_table(query: &str) -> Result<SqlTable, ParserError> {
         })
         .unwrap();
 
-    let columns = create_table
-        .columns
-        .iter()
-        .map(|e| SqlColumn {
-            name: e.name.value.clone(),
-            column_type: e.data_type.clone(),
-            nullable: e
-                .options
-                .iter()
-                .find_map(|e| {
-                    if let ColumnOption::Null = e.option {
-                        Some(true)
-                    } else if let ColumnOption::NotNull = e.option {
-                        Some(false)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or(true),
-        })
-        .collect();
-
-    Ok(SqlTable {
-        name: create_table
-            .name
-            .0
-            .iter()
-            .map(|e| {
-                let ObjectNamePart::Identifier(ident) = e;
-
-                ident.value.clone()
-            })
-            .next()
-            .unwrap(),
-        columns,
-    })
+    Ok(create_table.into())
 }
 
 #[cfg(test)]

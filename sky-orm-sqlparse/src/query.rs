@@ -6,26 +6,26 @@ use sqlparser::{
 
 use crate::schema::SqlTable;
 
-pub fn parse_create_table(query: &str) -> Result<SqlTable, ParserError> {
+/// Parses SQL text containing one or more `CREATE TABLE` statements and returns a list of
+/// [`SqlTable`] for each parsed statement.
+pub fn parse_tables(query: &str) -> Result<Vec<SqlTable>, ParserError> {
     let ast = Parser::parse_sql(&SQLiteDialect {}, query)?;
 
-    let create_table = ast
+    Ok(ast
         .iter()
-        .find_map(|e| {
+        .filter_map(|e| {
             if let Statement::CreateTable(statement) = e {
-                Some(statement)
+                Some(statement.into())
             } else {
                 None
             }
         })
-        .unwrap();
-
-    Ok(create_table.into())
+        .collect())
 }
 
 #[cfg(test)]
 mod test {
-    use super::parse_create_table;
+    use super::parse_tables;
 
     #[test]
     fn test_create_table() {
@@ -35,7 +35,9 @@ mod test {
           `something_nullable` TEXT
         )";
 
-        let parsed = parse_create_table(query).expect("Failed to parse query");
+        let tables = parse_tables(query).expect("Failed to parse query");
+
+        let parsed = tables.first().expect("Failed to get first table");
 
         assert_eq!(parsed.name, "test");
         assert!(

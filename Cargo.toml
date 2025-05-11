@@ -14,13 +14,17 @@ edition = "2024"
 
 [workspace.dependencies]
 sky-orm-macros = { version = "0.1.0", path = "./sky-orm-macros"}
-sky-orm-tests = { version = "0.1.0", path = "./sky-orm-tests"}
 sky-orm = { version = "0.1.0", path = "."}
 sqlx = "0.8.3"
-
-[dependencies]
+dotenvy = "0.15.7"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 futures = "0.3.31"
 itertools = "0.14.0"
+
+[dependencies]
+itertools.workspace = true
+futures.workspace = true
 sky-orm-macros.workspace = true
 sqlx.workspace = true
 

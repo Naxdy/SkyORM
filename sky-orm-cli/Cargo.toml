@@ -5,3 +5,13 @@ repository.workspace = true
 edition.workspace = true
 
 [dependencies]
+clap = { version = "4.5.38", features = ["derive"] }
+dotenvy.workspace = true
+eyre = "0.6.12"
+futures.workspace = true
+serde_json.workspace = true
+sky-orm-sqlparse = { version = "0.1.0", path = "../sky-orm-sqlparse" }
+sqlx = { workspace = true, features = ["mysql", "postgres", "sqlite"] }
+tokio = { version = "1.45.0", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"

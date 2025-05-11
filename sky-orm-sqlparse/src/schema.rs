@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use sqlparser::ast::{ColumnDef, ColumnOption, CreateTable, DataType, ObjectNamePart};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "name")]
 pub struct SqlColumn {
     pub name: String,
     pub column_type: DataType,
@@ -48,7 +47,6 @@ impl From<&ColumnDef> for SqlColumn {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "name")]
 pub struct SqlTable {
     pub name: String,
     pub columns: Vec<SqlColumn>,

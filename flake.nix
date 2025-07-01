@@ -7,6 +7,8 @@
     fenix.url = "github:nix-community/fenix";
 
     crane.url = "github:ipetkov/crane";
+
+    treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
   outputs =
@@ -15,12 +17,14 @@
       nixpkgs,
       fenix,
       crane,
+      treefmt-nix,
     }:
     let
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
       ];
+
       forEachSupportedSystem =
         f:
         nixpkgs.lib.genAttrs supportedSystems (
@@ -40,26 +44,94 @@
               "clippy"
             ];
 
+            # more info on https://crane.dev/API.html
             craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
+
+            cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+
+            craneArgs = {
+              pname = cargoToml.workspace.package.name or cargoToml.package.name;
+              version = cargoToml.workspace.package.version or cargoToml.package.version;
+
+              src = craneLib.cleanCargoSource ./.;
+
+              strictDeps = true;
+
+              # can add `nativeBuildInputs` or `buildInputs` here
+
+              env = {
+                # print backtrace on compilation failure
+                RUST_BACKTRACE = "1";
+
+                # treat warnings as errors
+                RUSTFLAGS = "-Dwarnings";
+                RUSTDOCFLAGS = "-Dwarnings";
+              };
+            };
+
+            cargoArtifacts = craneLib.buildDepsOnly craneArgs;
+
+            craneBuildArgs = craneArgs // {
+              src = self;
+              inherit cargoArtifacts;
+            };
+
+            treefmtEval = treefmt-nix.lib.evalModule pkgs (
+              import ./treefmt.nix { inherit rustToolchain cargoToml; }
+            );
+
+            treefmt = treefmtEval.config.build.wrapper;
           in
           f {
             inherit
+              cargoArtifacts
+              cargoToml
+              craneArgs
+              craneBuildArgs
+              craneLib
               pkgs
               rustToolchain
-              craneLib
+              treefmt
+              treefmtEval
               ;
           }
         );
     in
     {
+      formatter = forEachSupportedSystem ({ treefmt, ... }: treefmt);
+
       devShells = forEachSupportedSystem (
-        { pkgs, rustToolchain, ... }:
+        {
+          pkgs,
+          rustToolchain,
+          treefmt,
+          ...
+        }:
         {
           default = pkgs.mkShell {
             nativeBuildInputs = [
               rustToolchain
+              treefmt
             ];
           };
+        }
+      );
+
+      checks = forEachSupportedSystem (
+        {
+          craneBuildArgs,
+          craneLib,
+          treefmtEval,
+          ...
+        }:
+        {
+          test = craneLib.cargoTest craneBuildArgs;
+
+          doc = craneLib.cargoDoc craneBuildArgs;
+
+          clippy = craneLib.cargoClippy craneBuildArgs;
+
+          treefmt = treefmtEval.config.build.check self;
         }
       );
     };

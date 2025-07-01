@@ -53,7 +53,7 @@ pub trait InverseRelation: Sealed {
 /// Implementing this trait will automatically implement [`InverseRelated`] for the other side.
 pub trait Related<R, C>: Entity
 where
-    R: Entity,
+    R: Entity<Database = Self::Database>,
     C: ComparableColumn<Entity = Self, Type = <R::PrimaryKeyColumn as Column>::Type>,
 {
     /// The relation type, i.e. how many other entities are expected to be on the other side.
@@ -66,7 +66,7 @@ where
 /// This trait is auto implemented for the opposing sides whenever [`Related`] is implemented.
 pub trait InverseRelated<R, C>: Entity
 where
-    R: Entity,
+    R: Entity<Database = Self::Database>,
     C: ComparableColumn<Entity = R, Type = <Self::PrimaryKeyColumn as Column>::Type>,
 {
     /// The relation type, i.e. how many other entities are expected to be on the other side.
@@ -78,7 +78,7 @@ where
 
 impl<E, R, C> InverseRelated<E, C> for R
 where
-    E: Related<R, C>,
+    E: Related<R, C, Database = R::Database>,
     R: Entity,
     C: ComparableColumn<Entity = E, Type = <Self::PrimaryKeyColumn as Column>::Type>,
 {

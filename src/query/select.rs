@@ -2,7 +2,7 @@ use std::{marker::PhantomData, rc::Rc};
 
 use futures::{StreamExt, stream::FuturesUnordered};
 use itertools::Itertools;
-use sqlx::{AnyConnection, Executor, QueryBuilder};
+use sqlx::{Connection, Database, Executor, IntoArguments, QueryBuilder};
 
 use crate::entity::{
     Entity,
@@ -17,7 +17,7 @@ where
     T: Entity + 'static,
 {
     marker: PhantomData<T>,
-    conditions: Vec<Rc<dyn PushToQuery>>,
+    conditions: Vec<Rc<dyn PushToQuery<T::Database>>>,
     additional_tables: Vec<String>,
 }
 
@@ -37,7 +37,7 @@ where
     /// wrapped in `()` brackets.
     pub fn filter<Q>(mut self, condition: EntityConditionExpr<Q, T>) -> Self
     where
-        Q: PushToQuery + 'static,
+        Q: PushToQuery<T::Database> + 'static,
     {
         self.conditions.push(Rc::new(condition));
         self
@@ -48,8 +48,8 @@ where
     /// in `()` brackets.
     pub fn where_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
-        Q: PushToQuery + 'static,
-        R: Related<T, C> + 'static,
+        Q: PushToQuery<T::Database> + 'static,
+        R: Related<T, C, Database = T::Database> + 'static,
         T: InverseRelated<R, C>,
         C: Column<Entity = R, Type = <T::PrimaryKeyColumn as Column>::Type>,
         <T::PrimaryKeyColumn as Column>::Type: PartialEq,
@@ -69,8 +69,8 @@ where
     /// wrapped in `()` brackets.
     pub fn where_inverse_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
-        Q: PushToQuery + 'static,
-        R: InverseRelated<T, C> + 'static,
+        Q: PushToQuery<T::Database> + 'static,
+        R: InverseRelated<T, C, Database = T::Database> + 'static,
         T: Related<R, C>,
         C: Column<Entity = T, Type = <R::PrimaryKeyColumn as Column>::Type>,
         <R::PrimaryKeyColumn as Column>::Type: PartialEq,
@@ -98,15 +98,25 @@ where
     }
 
     /// Execute the query, returning a single result.
-    pub async fn one(&self, connection: &mut AnyConnection) -> Result<T::Model, sqlx::Error> {
+    pub async fn one<'c, C>(&self, connection: &'c mut C) -> Result<T::Model, sqlx::Error>
+    where
+        C: Connection<Database = T::Database>,
+        &'c mut C: Executor<'c, Database = T::Database>,
+        for<'q> <T::Database as Database>::Arguments<'q>: IntoArguments<'q, T::Database> + 'c,
+    {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
         let result = connection.fetch_one(builder.build()).await?;
-        <T::Model as ParseFromRow>::parse_from_row(&result)
+        <T::Model as ParseFromRow<T::Database>>::parse_from_row(&result)
     }
 
     /// Execute the query, returning all results.
-    pub async fn many(&self, connection: &mut AnyConnection) -> Result<Vec<T::Model>, sqlx::Error> {
+    pub async fn many<'c, C>(&self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
+    where
+        C: Connection<Database = T::Database>,
+        &'c mut C: Executor<'c, Database = T::Database>,
+        for<'q> <T::Database as Database>::Arguments<'q>: IntoArguments<'q, T::Database> + 'c,
+    {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
 
@@ -120,16 +130,16 @@ where
 
         result
             .iter()
-            .map(<T::Model as ParseFromRow>::parse_from_row)
+            .map(<T::Model as ParseFromRow<T::Database>>::parse_from_row)
             .collect::<Result<Vec<_>, _>>()
     }
 }
 
-impl<T> PushToQuery for Select<T>
+impl<T> PushToQuery<T::Database> for Select<T>
 where
     T: Entity + 'static,
 {
-    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, sqlx::Any>) {
+    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, T::Database>) {
         builder.push("SELECT ");
 
         T::COLUMN_NAMES.iter().enumerate().for_each(|(i, e)| {
@@ -153,9 +163,9 @@ where
             if self.conditions.len() == 1 {
                 BracketsExpr::new(conditions.pop().unwrap()).push_to(builder);
             } else {
-                let left: Box<dyn PushToQuery> =
+                let left: Box<dyn PushToQuery<T::Database>> =
                     Box::new(BracketsExpr::new(conditions.pop().unwrap()));
-                let right: Box<dyn PushToQuery> =
+                let right: Box<dyn PushToQuery<T::Database>> =
                     Box::new(BracketsExpr::new(conditions.pop().unwrap()));
                 let init = BinaryExpr::new(left, right, BinaryExprOperand::And);
                 let cond = conditions

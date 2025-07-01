@@ -6,7 +6,7 @@ use crate::{
         BinaryExpr, BinaryExprOperand, BracketsExpr, PushToQuery, QueryVariable, SingletonExpr,
     },
 };
-use sqlx::{Any, Decode, Encode, Row, Type, any::AnyRow};
+use sqlx::{ColumnIndex, Database, Decode, Encode, Row, Type};
 
 /// A struct that represents the name of a column on a particular table.
 pub struct ColumnName {
@@ -42,8 +42,11 @@ impl Display for ColumnName {
     }
 }
 
-impl PushToQuery for ColumnName {
-    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
+impl<DB> PushToQuery<DB> for ColumnName
+where
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, DB>) {
         builder.push(self.to_string());
     }
 }
@@ -52,7 +55,7 @@ impl PushToQuery for ColumnName {
 /// entity `E`.
 pub struct EntityConditionExpr<Q, E>
 where
-    Q: PushToQuery,
+    Q: PushToQuery<E::Database>,
     E: Entity,
 {
     marker: PhantomData<E>,
@@ -61,16 +64,16 @@ where
 
 impl<Q, E> EntityConditionExpr<Q, E>
 where
-    Q: PushToQuery,
+    Q: PushToQuery<E::Database>,
     E: Entity,
 {
     /// Chain another [`EntityConditionExpr`] using an `AND` statement.
     pub fn and<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
-    ) -> EntityConditionExpr<impl PushToQuery, E>
+    ) -> EntityConditionExpr<impl PushToQuery<E::Database>, E>
     where
-        OQ: PushToQuery,
+        OQ: PushToQuery<E::Database>,
     {
         EntityConditionExpr {
             marker: PhantomData,
@@ -82,9 +85,9 @@ where
     pub fn or<OQ>(
         self,
         other: EntityConditionExpr<OQ, E>,
-    ) -> EntityConditionExpr<impl PushToQuery, E>
+    ) -> EntityConditionExpr<impl PushToQuery<E::Database>, E>
     where
-        OQ: PushToQuery,
+        OQ: PushToQuery<E::Database>,
     {
         EntityConditionExpr {
             marker: PhantomData,
@@ -96,7 +99,7 @@ where
     ///
     /// Note that calling [`Select::filter`](crate::query::select::Select::filter) will
     /// automatically place the passed condition into brackets already.
-    pub fn brackets(self) -> EntityConditionExpr<impl PushToQuery, E> {
+    pub fn brackets(self) -> EntityConditionExpr<impl PushToQuery<E::Database>, E> {
         EntityConditionExpr {
             marker: PhantomData,
             inner: BracketsExpr::new(self.inner),
@@ -106,7 +109,7 @@ where
 
 impl<Q, E> From<Q> for EntityConditionExpr<Q, E>
 where
-    Q: PushToQuery,
+    Q: PushToQuery<E::Database>,
     E: Entity,
 {
     fn from(value: Q) -> Self {
@@ -117,19 +120,22 @@ where
     }
 }
 
-impl<Q, E> PushToQuery for EntityConditionExpr<Q, E>
+impl<Q, E> PushToQuery<E::Database> for EntityConditionExpr<Q, E>
 where
-    Q: PushToQuery,
+    Q: PushToQuery<E::Database>,
     E: Entity,
 {
-    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, E::Database>) {
         self.inner.push_to(builder)
     }
 }
 
 pub trait Column {
     /// The underlying rust type of this column.
-    type Type: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any> + Clone;
+    type Type: for<'a> Encode<'a, <Self::Entity as Entity>::Database>
+        + for<'a> Decode<'a, <Self::Entity as Entity>::Database>
+        + Type<<Self::Entity as Entity>::Database>
+        + Clone;
 
     /// The entity that this column belongs to.
     type Entity: Entity;
@@ -147,7 +153,11 @@ pub trait Column {
     }
 
     /// Try to parse a return value from a sqlx row into this column's rust type.
-    fn value_from_row(row: &AnyRow) -> Result<Self::Type, sqlx::Error> {
+    fn value_from_row<R>(row: &R) -> Result<Self::Type, sqlx::Error>
+    where
+        R: Row<Database = <Self::Entity as Entity>::Database>,
+        for<'a> &'a str: ColumnIndex<R>,
+    {
         row.try_get(Self::full_column_name().to_string().as_str())
     }
 }
@@ -156,7 +166,8 @@ pub trait NullableColumn: Column + Sized {
     /// Check whether this column is `null`.
     ///
     /// SQL: `column IS NULL`
-    fn is_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn is_null()
+    -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
             crate::query::SingletonExprOperand::IsNull,
@@ -167,7 +178,8 @@ pub trait NullableColumn: Column + Sized {
     /// Check whether this column is _not_ `null` (whether it has any value stored in it).
     ///
     /// SQL: `column IS NOT NULL`
-    fn is_not_null() -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn is_not_null()
+    -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity> {
         SingletonExpr::new(
             Self::full_column_name(),
             crate::query::SingletonExprOperand::IsNotNull,
@@ -184,24 +196,28 @@ pub trait ComparableColumn: Column + Sized {
     /// Note that supplying [`None`] in case [`Type`](Column::Type) is an [`Option`]
     /// is _not_ equivalent to calling [`is_null`](NullableColumn::is_null), because
     /// this call will instead produce the SQL `column = NULL`, as opposed to `column IS NULL`.
-    fn eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn eq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether this column does _not_ equal some other value.
     ///
     /// Note that supplying [`None`] in case [`Type`](Column::Type) is an [`Option`]
     /// is _not_ equivalent to calling [`is_not_null`](NullableColumn::is_not_null), because
     /// this call will instead produce the SQL `column != NULL`, as opposed to `column IS NOT NULL`.
-    fn not_eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn not_eq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column occurs in some collection.
     fn is_in(
         other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column does _not_ occur in some collection.
     fn is_not_in(
         other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 }
 
 impl<T> ComparableColumn for T
@@ -209,19 +225,25 @@ where
     T: Column,
     T::Type: PartialEq + 'static,
 {
-    fn eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn eq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             crate::query::BinaryExprOperand::Equals,
         )
         .into()
     }
 
-    fn not_eq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn not_eq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             crate::query::BinaryExprOperand::DoesNotEqual,
         )
         .into()
@@ -229,10 +251,14 @@ where
 
     fn is_in(
         other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            other.into_iter().map(QueryVariable).collect::<Vec<_>>(),
+            other
+                .into_iter()
+                .map(QueryVariable::new)
+                .collect::<Vec<_>>(),
             crate::query::BinaryExprOperand::In,
         )
         .into()
@@ -240,10 +266,14 @@ where
 
     fn is_not_in(
         other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            other.into_iter().map(QueryVariable).collect::<Vec<_>>(),
+            other
+                .into_iter()
+                .map(QueryVariable::new)
+                .collect::<Vec<_>>(),
             crate::query::BinaryExprOperand::NotIn,
         )
         .into()
@@ -251,7 +281,10 @@ where
 }
 
 pub trait StringComparableColumn: Column + Sized {
-    fn like(other: impl Into<String>) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn like(
+        other: impl Into<String>,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
             other.into(),
@@ -260,7 +293,10 @@ pub trait StringComparableColumn: Column + Sized {
         .into()
     }
 
-    fn ilike(other: impl Into<String>) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn ilike(
+        other: impl Into<String>,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
             other.into(),
@@ -282,25 +318,33 @@ pub trait OrderableColumn: Column + Sized {
     fn between(
         left: Self::Type,
         right: Self::Type,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column falls outside the range of `left` and `right`.
     fn not_between(
         left: Self::Type,
         right: Self::Type,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column is greater than `other`.
-    fn gt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn gt(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column is less than than `other`.
-    fn lt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn lt(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column is greater than or equal to `other`.
-    fn geq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn geq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 
     /// Check whether the value of this column is less than or equal to`other`.
-    fn leq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity>;
+    fn leq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
 }
 
 impl<T> OrderableColumn for T
@@ -311,12 +355,13 @@ where
     fn between(
         left: Self::Type,
         right: Self::Type,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
             BinaryExpr::new(
-                QueryVariable(left),
-                QueryVariable(right),
+                QueryVariable::new(left),
+                QueryVariable::new(right),
                 BinaryExprOperand::And,
             ),
             BinaryExprOperand::Between,
@@ -327,12 +372,13 @@ where
     fn not_between(
         left: Self::Type,
         right: Self::Type,
-    ) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
             BinaryExpr::new(
-                QueryVariable(left),
-                QueryVariable(right),
+                QueryVariable::new(left),
+                QueryVariable::new(right),
                 BinaryExprOperand::And,
             ),
             BinaryExprOperand::NotBetween,
@@ -340,37 +386,49 @@ where
         .into()
     }
 
-    fn gt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn gt(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             BinaryExprOperand::Gt,
         )
         .into()
     }
 
-    fn lt(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn lt(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             BinaryExprOperand::Lt,
         )
         .into()
     }
 
-    fn geq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn geq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             BinaryExprOperand::Geq,
         )
         .into()
     }
 
-    fn leq(other: Self::Type) -> EntityConditionExpr<impl PushToQuery, Self::Entity> {
+    fn leq(
+        other: Self::Type,
+    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
+    {
         BinaryExpr::new(
             Self::full_column_name(),
-            QueryVariable(other),
+            QueryVariable::new(other),
             BinaryExprOperand::Leq,
         )
         .into()

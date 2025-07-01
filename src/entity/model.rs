@@ -1,22 +1,26 @@
-use sqlx::{Any, Decode, Encode, Type};
+use std::marker::PhantomData;
+
+use sqlx::{Database, Decode, Encode, Type};
 
 use crate::query::parse::ParseFromRow;
 
 use super::Entity;
 
 #[derive(Clone)]
-pub enum ActiveModelValue<T>
+pub enum ActiveModelValue<T, DB>
 where
-    T: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any> + Clone,
+    T: for<'a> Encode<'a, DB> + for<'a> Decode<'a, DB> + Type<DB> + Clone,
+    DB: Database,
 {
     Set(T),
     Unchanged(T),
-    NotSet,
+    NotSet(PhantomData<DB>),
 }
 
-impl<T> ActiveModelValue<T>
+impl<T, DB> ActiveModelValue<T, DB>
 where
-    T: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any> + Clone,
+    T: for<'a> Encode<'a, DB> + for<'a> Decode<'a, DB> + Type<DB> + Clone,
+    DB: Database,
 {
     pub fn get(&self) -> Option<&T> {
         Option::from(self)
@@ -27,7 +31,7 @@ where
     }
 
     pub fn clear(&mut self) {
-        *self = ActiveModelValue::NotSet;
+        *self = ActiveModelValue::NotSet(PhantomData);
     }
 
     pub fn mark_unchanged(&mut self) {
@@ -37,20 +41,21 @@ where
     }
 }
 
-impl<'m, T> From<&'m ActiveModelValue<T>> for Option<&'m T>
+impl<'m, T, DB> From<&'m ActiveModelValue<T, DB>> for Option<&'m T>
 where
-    T: for<'a> Encode<'a, Any> + for<'a> Decode<'a, Any> + Type<Any> + Clone,
+    T: for<'a> Encode<'a, DB> + for<'a> Decode<'a, DB> + Type<DB> + Clone,
+    DB: Database,
 {
-    fn from(value: &'m ActiveModelValue<T>) -> Self {
+    fn from(value: &'m ActiveModelValue<T, DB>) -> Self {
         match value {
             ActiveModelValue::Set(e) => Some(e),
             ActiveModelValue::Unchanged(e) => Some(e),
-            ActiveModelValue::NotSet => None,
+            ActiveModelValue::NotSet(_) => None,
         }
     }
 }
 
-pub trait Model: ParseFromRow + Sized {
+pub trait Model: ParseFromRow<<Self::Entity as Entity>::Database> + Sized {
     type Entity: Entity;
     type ActiveModel: ActiveModel;
 

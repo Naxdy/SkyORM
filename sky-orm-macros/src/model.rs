@@ -143,6 +143,8 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
 
                 type Model = #model_ident;
 
+                type Database = ::sky_orm::sqlx::Postgres;
+
                 const TABLE_NAME: &'static str = #table_name;
 
                 const COLUMN_NAMES: &[&'static str] = &[
@@ -184,8 +186,11 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl ::sky_orm::query::parse::ParseFromRow for #model_ident {
-                fn parse_from_row(row: &::sky_orm::sqlx::any::AnyRow) -> ::std::result::Result<Self, ::sky_orm::sqlx::Error> {
+            impl ::sky_orm::query::parse::ParseFromRow<::sky_orm::sqlx::Postgres> for #model_ident {
+                fn parse_from_row(row: &<::sky_orm::sqlx::Postgres as ::sky_orm::sqlx::Database>::Row) -> ::std::result::Result<Self, ::sky_orm::sqlx::Error>
+                where
+                    for<'a> &'a str: ::sky_orm::sqlx::ColumnIndex<<::sky_orm::sqlx::Postgres as ::sky_orm::sqlx::Database>::Row>,
+                {
                     use ::sky_orm::entity::column::Column;
 
                     Ok(Self {
@@ -205,7 +210,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
             let vis = &e.field_vis;
 
             quote! {
-                #vis #ident: ::sky_orm::entity::model::ActiveModelValue<#ty>,
+                #vis #ident: ::sky_orm::entity::model::ActiveModelValue<#ty, ::sky_orm::sqlx::Postgres>,
             }
         });
 

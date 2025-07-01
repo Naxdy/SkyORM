@@ -274,7 +274,7 @@ pub fn decl_model(input: TokenStream) -> TokenStream {
             };
 
             Some(quote! {
-                impl ::sky_orm::relation::Related<super::#module_name::Entity, columns::#column_struct_name> for Entity {
+                impl ::sky_orm::relation::Related<super::#module_name::Entity, columns::#column_struct_name, ::sky_orm::sqlx::Postgres> for Entity {
                     type RelationType = #relation_type;
                 }
             })

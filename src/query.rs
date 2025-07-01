@@ -1,47 +1,69 @@
 pub mod parse;
 pub mod select;
 
-use std::{fmt::Display, ops::Deref, rc::Rc};
+use std::{fmt::Display, marker::PhantomData, ops::Deref, rc::Rc};
 
-use sqlx::{Any, Encode, QueryBuilder, Type};
+use sqlx::{Database, Encode, QueryBuilder, Type};
 
 /// This trait represents anything that can be pushed into a [`QueryBuilder`], i.e. any kind of
 /// query fragment, like a condition or a list of values.
-pub trait PushToQuery {
-    /// Push the object's contents into a query builder.
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>);
-}
-
-impl PushToQuery for Box<dyn PushToQuery> {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
-        self.deref().push_to(builder);
-    }
-}
-
-impl PushToQuery for Rc<dyn PushToQuery> {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
-        self.deref().push_to(builder);
-    }
-}
-
-pub(crate) struct QueryVariable<T>(pub(crate) T)
+pub trait PushToQuery<DB>
 where
-    T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone;
-
-impl<T> PushToQuery for QueryVariable<T>
-where
-    T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone,
+    DB: Database,
 {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+    /// Push the object's contents into a query builder.
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>);
+}
+
+impl<DB> PushToQuery<DB> for Box<dyn PushToQuery<DB>>
+where
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
+        self.deref().push_to(builder);
+    }
+}
+
+impl<DB> PushToQuery<DB> for Rc<dyn PushToQuery<DB>>
+where
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
+        self.deref().push_to(builder);
+    }
+}
+
+pub(crate) struct QueryVariable<T, DB>(pub(crate) T, PhantomData<DB>)
+where
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
+    DB: Database;
+
+impl<T, DB> QueryVariable<T, DB>
+where
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
+    DB: Database,
+{
+    pub fn new(inner: T) -> Self {
+        Self(inner, Default::default())
+    }
+}
+
+impl<T, DB> PushToQuery<DB> for QueryVariable<T, DB>
+where
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push_bind(self.0.clone());
     }
 }
 
-impl<T> PushToQuery for Vec<QueryVariable<T>>
+impl<T, DB> PushToQuery<DB> for Vec<QueryVariable<T, DB>>
 where
-    T: for<'a> Encode<'a, Any> + Type<Any> + 'static + Clone,
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
+    DB: Database,
 {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push("(");
         self.iter().enumerate().for_each(|(i, e)| {
             if i > 0 {
@@ -53,16 +75,27 @@ where
     }
 }
 
-pub(crate) struct BracketsExpr<T: PushToQuery>(T);
+pub(crate) struct BracketsExpr<T, DB>(T, PhantomData<DB>)
+where
+    T: PushToQuery<DB>,
+    DB: Database;
 
-impl<T: PushToQuery> BracketsExpr<T> {
+impl<T, DB> BracketsExpr<T, DB>
+where
+    T: PushToQuery<DB>,
+    DB: Database,
+{
     pub(crate) fn new(inner: T) -> Self {
-        BracketsExpr(inner)
+        BracketsExpr(inner, Default::default())
     }
 }
 
-impl<T: PushToQuery> PushToQuery for BracketsExpr<T> {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+impl<T, DB> PushToQuery<DB> for BracketsExpr<T, DB>
+where
+    T: PushToQuery<DB>,
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push("(");
         self.0.push_to(builder);
         builder.push(")");
@@ -114,36 +147,41 @@ impl Display for BinaryExprOperand {
 /// A binary SQL expression, glued together with an operator.
 ///
 /// Example: `left-side [operator] right-side`
-pub(crate) struct BinaryExpr<T, C>
+pub(crate) struct BinaryExpr<T, C, DB>
 where
-    T: PushToQuery,
-    C: PushToQuery,
+    T: PushToQuery<DB>,
+    C: PushToQuery<DB>,
+    DB: Database,
 {
     a: T,
     b: C,
     operand: BinaryExprOperand,
+    marker: PhantomData<DB>,
 }
 
-impl<T, C> BinaryExpr<T, C>
+impl<T, C, DB> BinaryExpr<T, C, DB>
 where
-    T: PushToQuery,
-    C: PushToQuery,
+    T: PushToQuery<DB>,
+    C: PushToQuery<DB>,
+    DB: Database,
 {
     pub(crate) fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
         Self {
             a: left,
             b: right,
             operand,
+            marker: Default::default(),
         }
     }
 }
 
-impl<T, C> PushToQuery for BinaryExpr<T, C>
+impl<T, C, DB> PushToQuery<DB> for BinaryExpr<T, C, DB>
 where
-    T: PushToQuery,
-    C: PushToQuery,
+    T: PushToQuery<DB>,
+    C: PushToQuery<DB>,
+    DB: Database,
 {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.a.push_to(builder);
         builder.push(format_args!(" {} ", self.operand));
         self.b.push_to(builder);
@@ -168,35 +206,46 @@ impl Display for SingletonExprOperand {
     }
 }
 
-pub(crate) struct SingletonExpr<T>
+pub(crate) struct SingletonExpr<T, DB>
 where
-    T: PushToQuery,
+    T: PushToQuery<DB>,
+    DB: Database,
 {
     inner: T,
     operand: SingletonExprOperand,
+    marker: PhantomData<DB>,
 }
 
-impl<T> SingletonExpr<T>
+impl<T, DB> SingletonExpr<T, DB>
 where
-    T: PushToQuery,
+    T: PushToQuery<DB>,
+    DB: Database,
 {
     pub fn new(inner: T, operand: SingletonExprOperand) -> Self {
-        Self { inner, operand }
+        Self {
+            inner,
+            operand,
+            marker: Default::default(),
+        }
     }
 }
 
-impl<T> PushToQuery for SingletonExpr<T>
+impl<T, DB> PushToQuery<DB> for SingletonExpr<T, DB>
 where
-    T: PushToQuery,
+    T: PushToQuery<DB>,
+    DB: Database,
 {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.inner.push_to(builder);
         builder.push(format_args!(" {}", self.operand));
     }
 }
 
-impl PushToQuery for String {
-    fn push_to(&self, builder: &mut QueryBuilder<'_, Any>) {
+impl<DB> PushToQuery<DB> for String
+where
+    DB: Database,
+{
+    fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push(self);
     }
 }

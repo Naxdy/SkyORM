@@ -2,11 +2,19 @@ use serde::{Deserialize, Serialize};
 use sqlparser::ast::{ColumnDef, ColumnOption, CreateTable, DataType, ObjectNamePart};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SqlForeignKey {
+    pub target_table: String,
+    pub target_column: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SqlColumn {
     pub name: String,
     pub column_type: DataType,
     pub nullable: bool,
     pub unique: bool,
+    pub primary_key: bool,
+    pub foreign_key: Option<SqlForeignKey>,
 }
 
 impl From<&ColumnDef> for SqlColumn {
@@ -42,6 +50,40 @@ impl From<&ColumnDef> for SqlColumn {
                     }
                 })
                 .unwrap_or(false),
+            primary_key: value
+                .options
+                .iter()
+                .find_map(|e| {
+                    if let ColumnOption::Unique {
+                        is_primary: true,
+                        characteristics: _,
+                    } = e.option
+                    {
+                        Some(true)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or(false),
+            foreign_key: value.options.iter().find_map(|e| {
+                if let ColumnOption::ForeignKey {
+                    foreign_table,
+                    referred_columns,
+                    on_delete: _,
+                    on_update: _,
+                    characteristics: _,
+                } = &e.option
+                {
+                    if referred_columns.len() == 1 {
+                        return Some(SqlForeignKey {
+                            target_table: foreign_table.0.last().unwrap().to_string(),
+                            target_column: referred_columns.first().unwrap().to_string(),
+                        });
+                    }
+                }
+
+                None
+            }),
         }
     }
 }
@@ -50,6 +92,7 @@ impl From<&ColumnDef> for SqlColumn {
 pub struct SqlTable {
     pub name: String,
     pub columns: Vec<SqlColumn>,
+    pub primary_key: Option<String>,
 }
 
 impl SqlTable {
@@ -60,7 +103,7 @@ impl SqlTable {
 
 impl From<&CreateTable> for SqlTable {
     fn from(create_table: &CreateTable) -> Self {
-        let columns = create_table.columns.iter().map(SqlColumn::from).collect();
+        let columns: Vec<SqlColumn> = create_table.columns.iter().map(SqlColumn::from).collect();
 
         SqlTable {
             name: create_table
@@ -74,6 +117,16 @@ impl From<&CreateTable> for SqlTable {
                 })
                 .next()
                 .unwrap(),
+            primary_key: columns
+                .iter()
+                .find_map(|e| {
+                    if e.primary_key {
+                        Some(e.name.clone())
+                    } else {
+                        None
+                    }
+                })
+                .or(create_table.primary_key.as_ref().map(|e| e.to_string())),
             columns,
         }
     }

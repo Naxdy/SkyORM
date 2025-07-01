@@ -5,7 +5,13 @@ edition.workspace = true
 repository.workspace = true
 
 [workspace]
-members = [".", "sky-orm-cli", "sky-orm-macros", "sky-orm-sqlparse", "sky-orm-tests"]
+members = [
+  ".",
+  "sky-orm-cli",
+  "sky-orm-macros",
+  "sky-orm-sqlparse",
+  "sky-orm-tests",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -13,14 +19,16 @@ repository = "https://github.com/Naxdy/SkyORM"
 edition = "2024"
 
 [workspace.dependencies]
-sky-orm-macros = { version = "0.1.0", path = "./sky-orm-macros"}
-sky-orm = { version = "0.1.0", path = "."}
-sqlx = "0.8.3"
+sky-orm-macros = { version = "0.1.0", path = "./sky-orm-macros" }
+sky-orm-sqlparse = { version = "0.1.0", path = "./sky-orm-sqlparse" }
+sky-orm = { version = "0.1.0", path = "." }
+sqlx = { version = "0.8.3", features = ["chrono"]}
 dotenvy = "0.15.7"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 futures = "0.3.31"
 itertools = "0.14.0"
+sqlparser = { version = "0.56.0", features = ["serde", "serde_json"] }
 
 [dependencies]
 itertools.workspace = true
@@ -43,17 +51,17 @@ tls-rustls-aws-lc-rs = ["sqlx/tls-rustls-aws-lc-rs"]
 tls-rustls-ring = ["sqlx/tls-rustls-ring"]
 tls-rustls-ring-native-roots = ["sqlx/tls-rustls-ring-native-roots"]
 tls-rustls-ring-webpki = ["sqlx/tls-rustls-ring-webpki"]
-mysql  = ["sqlx/mysql"]
-postgres  = ["sqlx/postgres"]
-regexp  = ["sqlx/regexp"]
-rust_decimal  = ["sqlx/rust_decimal"]
-sqlite  = ["sqlx/sqlite"]
-sqlite-unbundled  = ["sqlx/sqlite-unbundled"]
-time  = ["sqlx/time"]
-uuid  = ["sqlx/uuid"]
-bigdecimal  = ["sqlx/bigdecimal"]
-bit-vec  = ["sqlx/bit-vec"]
-chrono  = ["sqlx/chrono"]
+mysql = ["sqlx/mysql"]
+postgres = ["sqlx/postgres"]
+regexp = ["sqlx/regexp"]
+rust_decimal = ["sqlx/rust_decimal"]
+sqlite = ["sqlx/sqlite"]
+sqlite-unbundled = ["sqlx/sqlite-unbundled"]
+time = ["sqlx/time"]
+uuid = ["sqlx/uuid"]
+bigdecimal = ["sqlx/bigdecimal"]
+bit-vec = ["sqlx/bit-vec"]
+chrono = ["sqlx/chrono"]
 ipnetwork = ["sqlx/ipnetwork"]
 mac_address = ["sqlx/mac_address"]
 all-databases = ["sqlx/all-databases"]

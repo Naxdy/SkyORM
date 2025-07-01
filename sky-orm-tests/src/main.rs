@@ -20,6 +20,17 @@ mod my_entity {
     }
 }
 
+mod my_parsed_entity {
+    use sky_orm_macros::model;
+
+    model! {
+        "trades",
+        fields: {
+            uuid -> identifier
+        },
+    }
+}
+
 mod my_other_entity {
     use sky_orm_macros::DatabaseModel;
 

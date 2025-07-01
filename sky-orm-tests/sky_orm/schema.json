@@ -1,0 +1,310 @@
+{
+  "tables": [
+    {
+      "name": "trades",
+      "columns": [
+        {
+          "name": "uuid",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": true,
+          "primary_key": true
+        },
+        {
+          "name": "exchange_name",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "entry_timestamp",
+          "column_type": {
+            "Timestamp": [null, "None"]
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "entry_price",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "entry_volume",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "position_size",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "tp_targets",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "original_stop_loss",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "current_stop_loss",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "is_done",
+          "column_type": "Bool",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "is_long",
+          "column_type": "Bool",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "strategy_id",
+          "column_type": {
+            "Integer": null
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "symbol",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        }
+      ],
+      "primary_key": "uuid"
+    },
+    {
+      "name": "strategy",
+      "columns": [
+        {
+          "name": "id",
+          "column_type": {
+            "Integer": null
+          },
+          "nullable": false,
+          "unique": true,
+          "primary_key": true
+        },
+        {
+          "name": "name",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "script",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "active",
+          "column_type": "Bool",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "timeframe",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "exchange",
+          "column_type": "Text",
+          "nullable": true,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "quote_asset",
+          "column_type": "Text",
+          "nullable": true,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "risk_percent",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "trading_capital",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "max_trades_per_kline",
+          "column_type": {
+            "Integer": null
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "tp_weights",
+          "column_type": "Text",
+          "nullable": true,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "max_risk_in_trades",
+          "column_type": {
+            "Double": "None"
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "next_update_timestamp",
+          "column_type": {
+            "Timestamp": [null, "None"]
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "stop_loss_strategy",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "symbols",
+          "column_type": "Text",
+          "nullable": true,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "last_error_msg",
+          "column_type": "Text",
+          "nullable": true,
+          "unique": false,
+          "primary_key": false
+        }
+      ],
+      "primary_key": "id"
+    },
+    {
+      "name": "indicator",
+      "columns": [
+        {
+          "name": "id",
+          "column_type": {
+            "Integer": null
+          },
+          "nullable": false,
+          "unique": true,
+          "primary_key": true
+        },
+        {
+          "name": "name",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "script",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        },
+        {
+          "name": "plot_config",
+          "column_type": "Text",
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        }
+      ],
+      "primary_key": "id"
+    },
+    {
+      "name": "__diesel_schema_migrations",
+      "columns": [
+        {
+          "name": "version",
+          "column_type": {
+            "Varchar": {
+              "IntegerLength": {
+                "length": 50,
+                "unit": null
+              }
+            }
+          },
+          "nullable": false,
+          "unique": true,
+          "primary_key": true
+        },
+        {
+          "name": "run_on",
+          "column_type": {
+            "Timestamp": [null, "None"]
+          },
+          "nullable": false,
+          "unique": false,
+          "primary_key": false
+        }
+      ],
+      "primary_key": "version"
+    }
+  ]
+}

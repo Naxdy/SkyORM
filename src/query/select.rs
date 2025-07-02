@@ -169,7 +169,7 @@ where
                     Box::new(BracketsExpr::new(conditions.pop().unwrap()));
                 let init = BinaryExpr::new(left, right, BinaryExprOperand::And);
                 let cond = conditions
-                    .drain(0..self.conditions.len())
+                    .drain(0..conditions.len())
                     .fold(init, |acc, curr| {
                         BinaryExpr::new(
                             Box::new(acc),

@@ -63,6 +63,9 @@ fn main() {
             "August Heinrich".to_string(),
         )));
 
+    let pq = my_parsed_entity::Entity::find();
+
     println!("Q: {}", q.query());
     println!("OQ: {}", oq.query());
+    println!("PQ: {}", pq.query());
 }

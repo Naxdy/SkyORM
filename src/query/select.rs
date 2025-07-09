@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, rc::Rc};
 
-use futures::{StreamExt, stream::FuturesUnordered};
+use futures::StreamExt;
 use itertools::Itertools;
 use sqlx::{Connection, Database, Executor, IntoArguments, QueryBuilder};
 
@@ -111,7 +111,7 @@ where
     }
 
     /// Execute the query, returning all results.
-    pub async fn many<'c, C>(&self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
+    pub async fn all<'c, C>(&self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
         &'c mut C: Executor<'c, Database = T::Database>,
@@ -122,8 +122,7 @@ where
 
         let result = connection
             .fetch(builder.build())
-            // TODO: check if this messes with `ORDER BY`
-            .collect::<FuturesUnordered<_>>()
+            .collect::<Vec<_>>()
             .await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;

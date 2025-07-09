@@ -6,7 +6,10 @@ use column::ComparableColumn;
 use model::Model;
 use sqlx::Database;
 
-use crate::query::{parse::ParseFromRow, select::Select};
+use crate::{
+    entity::column::Column,
+    query::{parse::ParseFromRow, select::Select},
+};
 
 pub trait Entity: Sized {
     type PrimaryKeyColumn: ComparableColumn<Entity = Self>;

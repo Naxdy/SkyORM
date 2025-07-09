@@ -98,7 +98,7 @@ where
     }
 
     /// Execute the query, returning a single result.
-    pub async fn one<'c, C>(&self, connection: &'c mut C) -> Result<T::Model, sqlx::Error>
+    pub async fn one<'c, C>(self, connection: &'c mut C) -> Result<T::Model, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
         &'c mut C: Executor<'c, Database = T::Database>,
@@ -111,7 +111,7 @@ where
     }
 
     /// Execute the query, returning all results.
-    pub async fn all<'c, C>(&self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
+    pub async fn all<'c, C>(self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
         &'c mut C: Executor<'c, Database = T::Database>,

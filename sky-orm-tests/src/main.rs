@@ -56,7 +56,7 @@ fn main() {
             my_other_entity::columns::AmountKilled::lt(69)
                 .or(my_other_entity::columns::OtherAmountKilled::gt(51)),
         )
-        .filter(my_other_entity::columns::AmountKilled::is_not_in([
+        .filter(my_other_entity::columns::AmountKilled::is_not_in(&[
             0, 1, 2, 3, 4,
         ]))
         .where_relation(my_entity::columns::Name::eq(Some(

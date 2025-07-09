@@ -87,6 +87,8 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
         }
     }
 
+    let model_ident = &target.ident;
+
     let Some(primary_key_struct_ident) = columns.iter().find_map(|e| {
         if e.field_ident.eq(&target.primary_key) {
             Some(Ident::new(e.struct_name.as_str(), e.field_ident.span()))
@@ -117,16 +119,31 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
             }
         });
 
+        let get_column_impls = columns.iter().map(|e| {
+            let field_ident = &e.field_ident;
+            let column_struct_name = Ident::new(e.struct_name.as_str(), field_ident.span());
+
+            quote! {
+                impl ::sky_orm::entity::model::GetColumn<columns::#column_struct_name> for #model_ident {
+                    fn get(&self) -> &<columns::#column_struct_name as ::sky_orm::entity::column::Column>::Type {
+                        &self.#field_ident
+                    }
+                }
+            }
+        });
+
         quote! {
             pub mod columns {
                 #(
                     #column_impls
                 )*
             }
+
+            #(
+                #get_column_impls
+            )*
         }
     };
-
-    let model_ident = &target.ident;
 
     let entity_impl = {
         let table_name = target

@@ -211,13 +211,19 @@ pub trait ComparableColumn: Column + Sized {
 
     /// Check whether the value of this column occurs in some collection.
     fn is_in(
-        other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
+        other: &[Self::Type],
+    ) -> EntityConditionExpr<
+        impl PushToQuery<<Self::Entity as Entity>::Database> + 'static,
+        Self::Entity,
+    >;
 
     /// Check whether the value of this column does _not_ occur in some collection.
     fn is_not_in(
-        other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>;
+        other: &[Self::Type],
+    ) -> EntityConditionExpr<
+        impl PushToQuery<<Self::Entity as Entity>::Database> + 'static,
+        Self::Entity,
+    >;
 }
 
 impl<T> ComparableColumn for T
@@ -250,13 +256,16 @@ where
     }
 
     fn is_in(
-        other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
-    {
+        other: &[Self::Type],
+    ) -> EntityConditionExpr<
+        impl PushToQuery<<Self::Entity as Entity>::Database> + 'static,
+        Self::Entity,
+    > {
         BinaryExpr::new(
             Self::full_column_name(),
             other
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(QueryVariable::new)
                 .collect::<Vec<_>>(),
             crate::query::BinaryExprOperand::In,
@@ -265,13 +274,16 @@ where
     }
 
     fn is_not_in(
-        other: impl IntoIterator<Item = Self::Type>,
-    ) -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity>
-    {
+        other: &[Self::Type],
+    ) -> EntityConditionExpr<
+        impl PushToQuery<<Self::Entity as Entity>::Database> + 'static,
+        Self::Entity,
+    > {
         BinaryExpr::new(
             Self::full_column_name(),
             other
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(QueryVariable::new)
                 .collect::<Vec<_>>(),
             crate::query::BinaryExprOperand::NotIn,

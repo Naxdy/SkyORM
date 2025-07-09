@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use sqlx::{Database, Decode, Encode, Type};
 
-use crate::query::parse::ParseFromRow;
+use crate::{entity::column::Column, query::parse::ParseFromRow};
 
 use super::Entity;
 
@@ -64,4 +64,13 @@ pub trait Model: ParseFromRow<<Self::Entity as Entity>::Database> + Sized {
 
 pub trait ActiveModel {
     type Model: Model;
+}
+
+// TODO: Restrict column to entity somehow?
+pub trait GetColumn<C>
+where
+    C: Column,
+{
+    /// Get the value of a column from an entity.
+    fn get(&self) -> &C::Type;
 }

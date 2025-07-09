@@ -1,4 +1,11 @@
+use futures::future::BoxFuture;
 use sealed::Sealed;
+use sqlx::{Connection, Database, Executor, IntoArguments, Result};
+
+use crate::entity::{
+    column::NullableColumn,
+    model::{GetColumn, Model},
+};
 
 use super::{
     Entity,
@@ -83,6 +90,161 @@ where
     C: ComparableColumn<Entity = E, Type = <Self::PrimaryKeyColumn as Column>::Type>,
 {
     type InverseRelationType = <E::RelationType as Relation>::InverseEquivalent;
+}
+
+pub trait LoadRelation<T, C, R, O>
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C> + Entity<Database = <T::Entity as Entity>::Database> + Send + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    T::Entity: Entity<Model = T>,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    fn load_relation<'c, Conn>(self, connection: &'c mut Conn) -> impl Future<Output = Result<O>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c;
+}
+
+// TODO: add non-nullable variant
+
+impl<T, C, R> LoadRelation<T, C, R, Vec<Option<T>>> for &[R::Model]
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + Clone + 'static,
+    R: Related<T::Entity, C> + Entity<Database = <T::Entity as Entity>::Database> + Send + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    T::Entity: Entity<Model = T>,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_relation<'c, Conn>(self, connection: &'c mut Conn) -> Result<Vec<Option<T>>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        let results = <T::Entity as Entity>::find()
+            .filter(<T::Entity as Entity>::PrimaryKeyColumn::is_in(
+                &self.iter().map(|e| e.get().clone()).collect::<Vec<_>>(),
+            ))
+            .all(connection)
+            .await?;
+
+        Ok(self
+            .iter()
+            .map(|e| results.iter().find(|r| r.get() == e.get()).cloned())
+            .collect())
+    }
+}
+
+pub trait LoadInverse<T, C, R, O>
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C> + Entity<Database = <T::Entity as Entity>::Database> + Send + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    fn load_inverse<'c, Conn>(self, connection: &'c mut Conn) -> impl Future<Output = Result<O>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c;
+}
+
+impl<T, C, R> LoadInverse<T, C, R, Vec<Option<R::Model>>> for &[T]
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C, RelationType = OneToOne>
+        + Entity<Database = <T::Entity as Entity>::Database>
+        + Send
+        + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_inverse<'c, Conn>(self, connection: &'c mut Conn) -> Result<Vec<Option<R::Model>>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        let results = R::find()
+            .filter(C::is_in(
+                &self.iter().map(|e| e.get().clone()).collect::<Vec<_>>(),
+            ))
+            .all(connection)
+            .await?;
+
+        Ok(self
+            .iter()
+            .map(|e| results.iter().find(|r| r.get() == e.get()).cloned())
+            .collect())
+    }
+}
+
+impl<T, C, R> LoadInverse<T, C, R, Vec<Vec<R::Model>>> for &[T]
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C, RelationType = OneToMany>
+        + Entity<Database = <T::Entity as Entity>::Database>
+        + Send
+        + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_inverse<'c, Conn>(self, connection: &'c mut Conn) -> Result<Vec<Vec<R::Model>>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        let results = R::find()
+            .filter(C::is_in(
+                &self.iter().map(|e| e.get().clone()).collect::<Vec<_>>(),
+            ))
+            .all(connection)
+            .await?;
+
+        Ok(self
+            .iter()
+            .map(|e| {
+                results
+                    .iter()
+                    .filter(|r| r.get() == e.get())
+                    .cloned()
+                    .collect()
+            })
+            .collect())
+    }
 }
 
 mod sealed {

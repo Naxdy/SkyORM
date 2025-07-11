@@ -5,6 +5,9 @@ version.workspace = true
 repository.workspace = true
 edition.workspace = true
 
+[lints]
+workspace = true
+
 [dependencies]
 dotenvy.workspace = true
 serde.workspace = true

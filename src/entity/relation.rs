@@ -1,11 +1,7 @@
-use futures::future::BoxFuture;
 use sealed::Sealed;
 use sqlx::{Connection, Database, Executor, IntoArguments, Result};
 
-use crate::entity::{
-    column::NullableColumn,
-    model::{GetColumn, Model},
-};
+use crate::entity::model::{GetColumn, Model};
 
 use super::{
     Entity,
@@ -113,7 +109,7 @@ where
         for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c;
 }
 
-// TODO: add non-nullable variant
+// TODO: add non-nullable variants
 
 impl<T, C, R> LoadRelation<T, C, R, Vec<Option<T>>> for &[R::Model]
 where
@@ -146,6 +142,41 @@ where
             .iter()
             .map(|e| results.iter().find(|r| r.get() == e.get()).cloned())
             .collect())
+    }
+}
+
+impl<T, C, R> LoadRelation<T, C, R, Option<T>> for &R::Model
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + Clone + 'static,
+    R: Related<T::Entity, C> + Entity<Database = <T::Entity as Entity>::Database> + Send + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    T::Entity: Entity<Model = T>,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_relation<'c, Conn>(self, connection: &'c mut Conn) -> Result<Option<T>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        let result = <T::Entity as Entity>::find()
+            .filter(<T::Entity as Entity>::PrimaryKeyColumn::eq(
+                self.get().clone(),
+            ))
+            .one(connection)
+            .await;
+
+        if let Err(sqlx::Error::RowNotFound) = result {
+            Ok(None)
+        } else {
+            Ok(Some(result?))
+        }
     }
 }
 
@@ -208,7 +239,7 @@ where
 impl<T, C, R> LoadInverse<T, C, R, Vec<Vec<R::Model>>> for &[T]
 where
     T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
-    R: Related<T::Entity, C, RelationType = OneToMany>
+    R: Related<T::Entity, C, RelationType = ManyToOne>
         + Entity<Database = <T::Entity as Entity>::Database>
         + Send
         + 'static,
@@ -244,6 +275,70 @@ where
                     .collect()
             })
             .collect())
+    }
+}
+
+impl<T, C, R> LoadInverse<T, C, R, Option<R::Model>> for &T
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C, RelationType = OneToOne>
+        + Entity<Database = <T::Entity as Entity>::Database>
+        + Send
+        + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_inverse<'c, Conn>(self, connection: &'c mut Conn) -> Result<Option<R::Model>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        let result = R::find()
+            .filter(C::eq(self.get().clone()))
+            .one(connection)
+            .await;
+
+        if let Err(sqlx::Error::RowNotFound) = result {
+            Ok(None)
+        } else {
+            Ok(Some(result?))
+        }
+    }
+}
+
+impl<T, C, R> LoadInverse<T, C, R, Vec<R::Model>> for &T
+where
+    T: Model + GetColumn<<T::Entity as Entity>::PrimaryKeyColumn> + 'static,
+    R: Related<T::Entity, C, RelationType = ManyToOne>
+        + Entity<Database = <T::Entity as Entity>::Database>
+        + Send
+        + 'static,
+    R::Model: GetColumn<C> + Clone,
+    C: Column
+        + ComparableColumn<
+            Entity = R,
+            Type = <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type,
+        > + 'static,
+    <T::Entity as Entity>::PrimaryKeyColumn: Clone,
+    <<T::Entity as Entity>::PrimaryKeyColumn as Column>::Type: PartialEq,
+{
+    async fn load_inverse<'c, Conn>(self, connection: &'c mut Conn) -> Result<Vec<R::Model>>
+    where
+        Conn: Connection<Database = R::Database>,
+        &'c mut Conn: Executor<'c, Database = R::Database>,
+        for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
+    {
+        R::find()
+            .filter(C::eq(self.get().clone()))
+            .all(connection)
+            .await
     }
 }
 

@@ -4,6 +4,16 @@ version.workspace = true
 edition.workspace = true
 repository.workspace = true
 
+[lints]
+workspace = true
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -3 }
+nursery = { level = "warn", priority = -2 }
+unwrap_used = { level = "warn", priority = -1 }
+expect_used = { level = "warn", priority = -1 }
+print_stdout = { level = "deny", priority = -1 }
+
 [workspace]
 members = [
   ".",
@@ -22,7 +32,7 @@ edition = "2024"
 sky-orm-macros = { version = "0.1.0", path = "./sky-orm-macros" }
 sky-orm-sqlparse = { version = "0.1.0", path = "./sky-orm-sqlparse" }
 sky-orm = { version = "0.1.0", path = "." }
-sqlx = { version = "0.8.3", features = ["chrono"]}
+sqlx = { version = "0.8.3", features = ["chrono"] }
 dotenvy = "0.15.7"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"

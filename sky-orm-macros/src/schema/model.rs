@@ -97,7 +97,7 @@ struct DeclModelArgs {
 
 impl Parse for DeclModelArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut this = DeclModelArgs {
+        let mut this = Self {
             struct_attrs: input.call(Attribute::parse_outer)?,
             table_name: input.parse::<LitStr>()?,
             field_additions: FieldAdditions::default(),
@@ -136,6 +136,8 @@ impl Parse for DeclModelArgs {
 
 struct ColumnFieldPairing(SqlColumn, Option<FieldAddition>);
 
+// TODO: refactor with `syn-parse-helpers` to cut down on line length
+#[allow(clippy::too_many_lines)]
 pub fn decl_model(input: TokenStream) -> TokenStream {
     let arg = match parse2::<DeclModelArgs>(input) {
         Ok(e) => e,
@@ -207,19 +209,16 @@ pub fn decl_model(input: TokenStream) -> TokenStream {
         let (c, field_addition) = (&e.0, e.1.as_ref());
 
         let field_name = field_addition
-            .and_then(|e| e.rename_to.as_ref().map(|e| e.to_string()))
-            .unwrap_or(c.name.to_case(Case::Snake));
+            .and_then(|e| e.rename_to.as_ref().map(std::string::ToString::to_string))
+            .unwrap_or_else(|| c.name.to_case(Case::Snake));
 
         let field_name = Ident::new(
             &field_name,
-            field_addition
-                .map(|e| {
-                    e.rename_to
-                        .as_ref()
-                        .map(|e| e.span())
-                        .unwrap_or(e.field_name.span())
-                })
-                .unwrap_or(Span::call_site()),
+            field_addition.map_or_else(Span::call_site, |e| {
+                e.rename_to
+                    .as_ref()
+                    .map_or(e.field_name.span(), proc_macro2::Ident::span)
+            }),
         );
 
         let attrs = field_addition.map(|e| e.attrs.clone()).unwrap_or_default();
@@ -232,7 +231,7 @@ pub fn decl_model(input: TokenStream) -> TokenStream {
                     }
                 })
             })
-            .unwrap_or(sql_to_rust_type(&c.column_type));
+            .unwrap_or_else(|| sql_to_rust_type(&c.column_type));
 
         let column_name = &c.name;
 
@@ -246,20 +245,17 @@ pub fn decl_model(input: TokenStream) -> TokenStream {
     });
 
     let relation_impls = column_field_pairings.iter().filter_map(|e| {
-        if let Some(foreign_key) = &e.0.foreign_key {
+        e.0.foreign_key.as_ref().map(|foreign_key| {
             let module_name = Ident::new(&foreign_key.target_table, Span::call_site());
             let column_struct_name =
                 e.1.as_ref()
-                    .map(|e| {
-                        e.rename_to
-                            .as_ref()
-                            .map(|e| e.to_string())
-                            .unwrap_or(e.field_name.to_string().to_case(Case::Pascal))
-                    })
                     // need to do this weirdness, because this is how the struct name is computed
                     // inside the derive macro. directly going to PascalCase might have unintended
                     // consequences
-                    .unwrap_or(e.0.name.to_case(Case::Snake).to_case(Case::Pascal));
+                    .map_or_else(|| e.0.name.to_case(Case::Snake).to_case(Case::Pascal),|e| {
+                        e.rename_to
+                            .as_ref().map_or_else(|| e.field_name.to_string().to_case(Case::Pascal), std::string::ToString::to_string)
+                    });
 
             let column_struct_name = Ident::new(&column_struct_name, Span::call_site());
 
@@ -278,34 +274,31 @@ pub fn decl_model(input: TokenStream) -> TokenStream {
                     type RelationType = #relation_type;
                 }
             })
-        } else {
-            None
-        }
+        })
     });
 
-    let sky_orm_attr = match &table.primary_key {
-        Some(e) => {
-            let primary_key_field_name = arg
-                .field_additions
-                .iter()
-                .find_map(|f| {
-                    if f.field_name.to_string().eq(e) {
-                        if let Some(r) = &f.rename_to {
-                            return Some(r.to_string());
-                        }
+    let sky_orm_attr = if let Some(e) = &table.primary_key {
+        let primary_key_field_name = arg
+            .field_additions
+            .iter()
+            .find_map(|f| {
+                if f.field_name.to_string().eq(e) {
+                    if let Some(r) = &f.rename_to {
+                        return Some(r.to_string());
                     }
+                }
 
-                    None
-                })
-                .unwrap_or(e.to_case(Case::Snake));
+                None
+            })
+            .unwrap_or_else(|| e.to_case(Case::Snake));
 
-            quote! {
-                #[sky_orm(primary_key = #primary_key_field_name, table = #table_name)]
-            }
+        quote! {
+            #[sky_orm(primary_key = #primary_key_field_name, table = #table_name)]
         }
-        None => quote! {
+    } else {
+        quote! {
             #[sky_orm(table = #table_name)]
-        },
+        }
     };
 
     let struct_attrs = arg.struct_attrs;

@@ -8,6 +8,10 @@ use crate::schema::SqlTable;
 
 /// Parses SQL text containing one or more `CREATE TABLE` statements and returns a list of
 /// [`SqlTable`] for each parsed statement.
+///
+/// # Errors
+///
+/// If the query cannot be parsed correctly. See [`ParserError`] for more information.
 pub fn parse_tables(query: &str) -> Result<Vec<SqlTable>, ParserError> {
     let ast = Parser::parse_sql(&SQLiteDialect {}, query)?;
 
@@ -24,6 +28,7 @@ pub fn parse_tables(query: &str) -> Result<Vec<SqlTable>, ParserError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used)]
 mod test {
     use super::parse_tables;
 

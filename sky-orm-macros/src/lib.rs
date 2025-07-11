@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)]
 mod model;
 mod parse;
 mod schema;

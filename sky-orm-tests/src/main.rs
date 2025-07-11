@@ -1,3 +1,5 @@
+#![allow(clippy::print_stdout)]
+
 use sky_orm::entity::{
     Entity,
     column::{ComparableColumn, OrderableColumn},

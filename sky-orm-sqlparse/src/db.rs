@@ -7,6 +7,7 @@ pub enum DbType {
 }
 
 impl DbType {
+    #[must_use]
     pub fn from_connection_string(input: &str) -> Option<Self> {
         let lower = input.to_lowercase();
 
@@ -24,6 +25,12 @@ impl DbType {
 
 /// Attempt to retrieve the database URL from the `DATABASE_URL` environment variable, or from a
 /// corresponding `.env` file.
+///
+/// # Panics
+///
+/// If the environment variable cannot be parsed to UTF8.
+#[must_use]
+#[allow(clippy::unwrap_used)]
 pub fn get_database_url() -> Option<String> {
     let _ = dotenv();
 

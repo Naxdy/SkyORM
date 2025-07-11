@@ -21,7 +21,7 @@ pub struct GenerateSchema {
 
 impl GenerateSchema {
     pub async fn run(&self) -> eyre::Result<()> {
-        let Some(database_url) = self.database_url.clone().or(get_database_url()) else {
+        let Some(database_url) = self.database_url.clone().or_else(get_database_url) else {
             return Err(eyre::eyre!(
                 "Missing database URL, either set the `DATABASE_URL` environment variable, or specify it manually via --database-url [URL]"
             ));

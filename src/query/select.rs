@@ -35,6 +35,7 @@ where
 
     /// Append a new `WHERE` condition using an `AND` statement as glue. The passed condition is
     /// wrapped in `()` brackets.
+    #[must_use]
     pub fn filter<Q>(mut self, condition: EntityConditionExpr<Q, T>) -> Self
     where
         Q: PushToQuery<T::Database> + 'static,
@@ -46,6 +47,7 @@ where
     /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
     /// columns of a related entity (the foreign key is on `R`). The passed condition is wrapped
     /// in `()` brackets.
+    #[must_use]
     pub fn where_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery<T::Database> + 'static,
@@ -67,6 +69,7 @@ where
     /// Append a new `WHERE` condition using an `AND` statement as glue, allowing to filter the
     /// columns of an inversely related entity (the foreign key is on `T`). The passed condition is
     /// wrapped in `()` brackets.
+    #[must_use]
     pub fn where_inverse_relation<C, Q, R>(mut self, condition: EntityConditionExpr<Q, R>) -> Self
     where
         Q: PushToQuery<T::Database> + 'static,
@@ -91,6 +94,7 @@ where
     ///
     /// This is mainly useful for debugging purposes, and not intended to produce queries to be run
     /// on an actual database.
+    #[must_use]
     pub fn query(&self) -> String {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
@@ -98,6 +102,14 @@ where
     }
 
     /// Execute the query, returning a single result.
+    ///
+    /// # Errors
+    ///
+    /// If no entry could be found, or if there's been a problem communicating with the database.
+    /// See [`sqlx::Error`] for more information.
+    // Clippy doesn't understand drop / type params.
+    // See https://github.com/rust-lang/rust/issues/87309
+    #[allow(clippy::future_not_send)]
     pub async fn one<'c, C>(self, connection: &'c mut C) -> Result<T::Model, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
@@ -106,11 +118,22 @@ where
     {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
+
+        drop(self);
+
         let result = connection.fetch_one(builder.build()).await?;
         <T::Model as ParseFromRow<T::Database>>::parse_from_row(&result)
     }
 
     /// Execute the query, returning all results.
+    ///
+    /// # Errors
+    ///
+    /// If there's been a problem communicating with the database. See [`sqlx::Error`] for more
+    /// information.
+    // Clippy doesn't understand drop / type params.
+    // See https://github.com/rust-lang/rust/issues/87309
+    #[allow(clippy::future_not_send)]
     pub async fn all<'c, C>(self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
@@ -119,6 +142,8 @@ where
     {
         let mut builder = QueryBuilder::new("");
         self.push_to(&mut builder);
+
+        drop(self);
 
         let result = connection
             .fetch(builder.build())
@@ -138,6 +163,8 @@ impl<T> PushToQuery<T::Database> for Select<T>
 where
     T: Entity + 'static,
 {
+    // Unwraps are checked beforehand
+    #[allow(clippy::unwrap_used)]
     fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, T::Database>) {
         builder.push("SELECT ");
 
@@ -167,15 +194,13 @@ where
                 let right: Box<dyn PushToQuery<T::Database>> =
                     Box::new(BracketsExpr::new(conditions.pop().unwrap()));
                 let init = BinaryExpr::new(left, right, BinaryExprOperand::And);
-                let cond = conditions
-                    .drain(0..conditions.len())
-                    .fold(init, |acc, curr| {
-                        BinaryExpr::new(
-                            Box::new(acc),
-                            Box::new(BracketsExpr::new(curr)),
-                            BinaryExprOperand::And,
-                        )
-                    });
+                let cond = conditions.into_iter().fold(init, |acc, curr| {
+                    BinaryExpr::new(
+                        Box::new(acc),
+                        Box::new(BracketsExpr::new(curr)),
+                        BinaryExprOperand::And,
+                    )
+                });
                 cond.push_to(builder);
             };
         }

@@ -1,3 +1,5 @@
+#![allow(clippy::future_not_send)]
+
 use sealed::Sealed;
 use sqlx::{Connection, Database, Executor, IntoArguments, Result};
 
@@ -75,7 +77,7 @@ where
     /// The relation type, i.e. how many other entities are expected to be on the other side.
     ///
     /// Note that this is meant to be from the perspective of _this_ entity, so if the other entity
-    /// has a ManyToOne relation, this would be a OneToMany relation.
+    /// has a `ManyToOne` relation, this would be a `OneToMany` relation.
     type InverseRelationType: InverseRelation;
 }
 
@@ -166,13 +168,15 @@ where
         for<'q> <R::Database as Database>::Arguments<'q>: IntoArguments<'q, R::Database> + 'c,
     {
         let result = <T::Entity as Entity>::find()
-            .filter(<T::Entity as Entity>::PrimaryKeyColumn::eq(
-                self.get().clone(),
-            ))
+            .filter(
+                <<T::Entity as Entity>::PrimaryKeyColumn as ComparableColumn>::eq(
+                    self.get().clone(),
+                ),
+            )
             .one(connection)
             .await;
 
-        if let Err(sqlx::Error::RowNotFound) = result {
+        if matches!(result, Err(sqlx::Error::RowNotFound)) {
             Ok(None)
         } else {
             Ok(Some(result?))
@@ -305,7 +309,7 @@ where
             .one(connection)
             .await;
 
-        if let Err(sqlx::Error::RowNotFound) = result {
+        if matches!(result, Err(sqlx::Error::RowNotFound)) {
             Ok(None)
         } else {
             Ok(Some(result?))

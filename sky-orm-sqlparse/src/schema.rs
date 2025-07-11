@@ -26,9 +26,9 @@ impl From<&ColumnDef> for SqlColumn {
                 .options
                 .iter()
                 .find_map(|e| {
-                    if let ColumnOption::Null = e.option {
+                    if e.option == ColumnOption::Null {
                         Some(true)
-                    } else if let ColumnOption::NotNull = e.option {
+                    } else if e.option == ColumnOption::NotNull {
                         Some(false)
                     } else {
                         None
@@ -74,6 +74,7 @@ impl From<&ColumnDef> for SqlColumn {
                     characteristics: _,
                 } = &e.option
                 {
+                    #[allow(clippy::unwrap_used)]
                     if referred_columns.len() == 1 {
                         return Some(SqlForeignKey {
                             target_table: foreign_table.0.last().unwrap().to_string(),
@@ -96,16 +97,18 @@ pub struct SqlTable {
 }
 
 impl SqlTable {
+    #[must_use]
     pub fn find_column(&self, name: &str) -> Option<&SqlColumn> {
         self.columns.iter().find(|e| e.name.eq(name))
     }
 }
 
+#[allow(clippy::fallible_impl_from, clippy::unwrap_used)]
 impl From<&CreateTable> for SqlTable {
     fn from(create_table: &CreateTable) -> Self {
         let columns: Vec<SqlColumn> = create_table.columns.iter().map(SqlColumn::from).collect();
 
-        SqlTable {
+        Self {
             name: create_table
                 .name
                 .0
@@ -126,7 +129,12 @@ impl From<&CreateTable> for SqlTable {
                         None
                     }
                 })
-                .or(create_table.primary_key.as_ref().map(|e| e.to_string())),
+                .or_else(|| {
+                    create_table
+                        .primary_key
+                        .as_ref()
+                        .map(std::string::ToString::to_string)
+                }),
             columns,
         }
     }
@@ -138,6 +146,7 @@ pub struct SqlSchema {
 }
 
 impl SqlSchema {
+    #[must_use]
     pub fn find_table(&self, name: &str) -> Option<&SqlTable> {
         self.tables.iter().find(|e| e.name.eq(name))
     }

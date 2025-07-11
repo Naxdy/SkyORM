@@ -15,7 +15,10 @@ pub struct ColumnName {
 }
 
 impl ColumnName {
-    pub(crate) fn new_with_table_or_alias(table_or_alias: String, column_name: String) -> Self {
+    pub(crate) const fn new_with_table_or_alias(
+        table_or_alias: String,
+        column_name: String,
+    ) -> Self {
         Self {
             table_or_alias: Some(table_or_alias),
             column_name,
@@ -23,12 +26,14 @@ impl ColumnName {
     }
 
     /// The name of the column within the database.
-    pub fn column_name(&self) -> &String {
+    #[must_use]
+    pub const fn column_name(&self) -> &String {
         &self.column_name
     }
 
     /// The name of the table within the database that this column is part of.
-    pub fn table_or_alias(&self) -> Option<&String> {
+    #[must_use]
+    pub const fn table_or_alias(&self) -> Option<&String> {
         self.table_or_alias.as_ref()
     }
 }
@@ -36,7 +41,7 @@ impl ColumnName {
 impl Display for ColumnName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(table_or_alias) = &self.table_or_alias {
-            write!(f, "\"{}\".", table_or_alias)?;
+            write!(f, "\"{table_or_alias}\".")?;
         }
         write!(f, "\"{}\"", self.column_name)
     }
@@ -126,7 +131,7 @@ where
     E: Entity,
 {
     fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, E::Database>) {
-        self.inner.push_to(builder)
+        self.inner.push_to(builder);
     }
 }
 
@@ -145,6 +150,7 @@ pub trait Column {
 
     /// The fully qualified name of this column, usually something like
     /// `"entity_table_name"."column_name"`.
+    #[must_use]
     fn full_column_name() -> ColumnName {
         ColumnName::new_with_table_or_alias(
             Self::Entity::TABLE_NAME.to_string(),
@@ -153,6 +159,10 @@ pub trait Column {
     }
 
     /// Try to parse a return value from a sqlx row into this column's rust type.
+    ///
+    /// # Errors
+    ///
+    /// If the desired value cannot be parsed from the given row. See [`sqlx::Error`].
     fn value_from_row<R>(row: &R) -> Result<Self::Type, sqlx::Error>
     where
         R: Row<Database = <Self::Entity as Entity>::Database>,
@@ -166,6 +176,7 @@ pub trait NullableColumn: Column + Sized {
     /// Check whether this column is `null`.
     ///
     /// SQL: `column IS NULL`
+    #[must_use]
     fn is_null()
     -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity> {
         SingletonExpr::new(
@@ -178,6 +189,7 @@ pub trait NullableColumn: Column + Sized {
     /// Check whether this column is _not_ `null` (whether it has any value stored in it).
     ///
     /// SQL: `column IS NOT NULL`
+    #[must_use]
     fn is_not_null()
     -> EntityConditionExpr<impl PushToQuery<<Self::Entity as Entity>::Database>, Self::Entity> {
         SingletonExpr::new(

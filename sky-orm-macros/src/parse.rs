@@ -41,7 +41,10 @@ pub fn parse_from_row(input: TokenStream) -> TokenStream {
             };
         };
 
-        let column_name = e.column_name.clone().unwrap_or(field_name.to_string());
+        let column_name = e
+            .column_name
+            .clone()
+            .unwrap_or_else(|| field_name.to_string());
 
         quote! {
             #field_name: row.try_get(#column_name)?,

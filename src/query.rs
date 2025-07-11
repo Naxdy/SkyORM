@@ -43,8 +43,8 @@ where
     T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
     DB: Database,
 {
-    pub fn new(inner: T) -> Self {
-        Self(inner, Default::default())
+    pub const fn new(inner: T) -> Self {
+        Self(inner, PhantomData)
     }
 }
 
@@ -85,8 +85,8 @@ where
     T: PushToQuery<DB>,
     DB: Database,
 {
-    pub(crate) fn new(inner: T) -> Self {
-        BracketsExpr(inner, Default::default())
+    pub(crate) const fn new(inner: T) -> Self {
+        Self(inner, PhantomData)
     }
 }
 
@@ -125,20 +125,20 @@ impl Display for BinaryExprOperand {
             f,
             "{}",
             match self {
-                BinaryExprOperand::Equals => "=",
-                BinaryExprOperand::DoesNotEqual => "!=",
-                BinaryExprOperand::Like => "LIKE",
-                BinaryExprOperand::ILike => "ILIKE",
-                BinaryExprOperand::And => "AND",
-                BinaryExprOperand::Or => "OR",
-                BinaryExprOperand::In => "IN",
-                BinaryExprOperand::NotIn => "NOT IN",
-                BinaryExprOperand::Between => "BETWEEN",
-                BinaryExprOperand::NotBetween => "NOT BETWEEN",
-                BinaryExprOperand::Gt => ">",
-                BinaryExprOperand::Lt => "<",
-                BinaryExprOperand::Geq => ">=",
-                BinaryExprOperand::Leq => "<=",
+                Self::Equals => "=",
+                Self::DoesNotEqual => "!=",
+                Self::Like => "LIKE",
+                Self::ILike => "ILIKE",
+                Self::And => "AND",
+                Self::Or => "OR",
+                Self::In => "IN",
+                Self::NotIn => "NOT IN",
+                Self::Between => "BETWEEN",
+                Self::NotBetween => "NOT BETWEEN",
+                Self::Gt => ">",
+                Self::Lt => "<",
+                Self::Geq => ">=",
+                Self::Leq => "<=",
             }
         )
     }
@@ -165,12 +165,12 @@ where
     C: PushToQuery<DB>,
     DB: Database,
 {
-    pub(crate) fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
+    pub(crate) const fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
         Self {
             a: left,
             b: right,
             operand,
-            marker: Default::default(),
+            marker: PhantomData,
         }
     }
 }
@@ -199,8 +199,8 @@ impl Display for SingletonExprOperand {
             f,
             "{}",
             match self {
-                SingletonExprOperand::IsNull => "IS NULL",
-                SingletonExprOperand::IsNotNull => "IS NOT NULL",
+                Self::IsNull => "IS NULL",
+                Self::IsNotNull => "IS NOT NULL",
             }
         )
     }
@@ -221,11 +221,11 @@ where
     T: PushToQuery<DB>,
     DB: Database,
 {
-    pub fn new(inner: T, operand: SingletonExprOperand) -> Self {
+    pub const fn new(inner: T, operand: SingletonExprOperand) -> Self {
         Self {
             inner,
             operand,
-            marker: Default::default(),
+            marker: PhantomData,
         }
     }
 }

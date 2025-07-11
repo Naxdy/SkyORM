@@ -2,6 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use sqlparser::ast::DataType;
 
+#[allow(clippy::match_same_arms, clippy::too_many_lines)]
 pub fn sql_to_rust_type(sql_type: &DataType) -> TokenStream {
     match sql_type {
         DataType::Table(_) => todo!(),

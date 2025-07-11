@@ -1,3 +1,7 @@
+#![allow(clippy::unwrap_used)]
+
+mod schema;
+
 use clap::{Parser, Subcommand};
 use schema::GenerateSchema;
 use tracing::{error, level_filters::LevelFilter};
@@ -6,8 +10,6 @@ use tracing_subscriber::{
     layer::SubscriberExt,
     util::SubscriberInitExt,
 };
-
-mod schema;
 
 #[derive(Subcommand, Debug)]
 enum Subcommands {

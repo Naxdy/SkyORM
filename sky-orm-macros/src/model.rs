@@ -32,6 +32,8 @@ struct TargetColumn {
     field_vis: Visibility,
 }
 
+// TODO: Refactor this using `syn-parse-helpers` to cut down on line length.
+#[allow(clippy::too_many_lines)]
 pub fn derive_database_model(input: TokenStream) -> TokenStream {
     let input: DeriveInput = parse2(input).expect("Failed to parse derive input");
 
@@ -60,7 +62,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
 
             TargetColumn {
                 field_ident: ident.clone(),
-                db_name: e.column.as_ref().cloned().unwrap_or(ident.to_string()),
+                db_name: e.column.clone().unwrap_or_else(|| ident.to_string()),
                 struct_name: ident.to_string().to_case(Case::Pascal),
                 ty: e.ty.clone(),
                 field_vis: e.vis.clone(),
@@ -73,13 +75,13 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
         .iter()
         .find(|e| columns.iter().filter(|o| e.db_name.eq(&o.db_name)).count() > 1)
     {
-        columns.iter().for_each(|e| {
+        for e in &columns {
             if columns.iter().filter(|o| e.db_name.eq(&o.db_name)).count() > 1 {
                 emit_error! {
                     e.field_ident.span(), "Clashing occurrence of \"{}\" here.", e.db_name
                 };
             }
-        });
+        }
 
         abort! {
             duplicate.field_ident.span(), "Duplicate column definition \"{}\"", duplicate.db_name;
@@ -148,7 +150,7 @@ pub fn derive_database_model(input: TokenStream) -> TokenStream {
     let entity_impl = {
         let table_name = target
             .table
-            .unwrap_or(target.ident.to_string().to_case(Case::Snake));
+            .unwrap_or_else(|| target.ident.to_string().to_case(Case::Snake));
 
         let column_names_decl = columns.iter().map(|e| &e.db_name);
 

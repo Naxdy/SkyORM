@@ -27,16 +27,16 @@ where
     }
 
     pub fn set(&mut self, value: T) {
-        *self = ActiveModelValue::Set(value);
+        *self = Self::Set(value);
     }
 
     pub fn clear(&mut self) {
-        *self = ActiveModelValue::NotSet(PhantomData);
+        *self = Self::NotSet(PhantomData);
     }
 
     pub fn mark_unchanged(&mut self) {
-        if let ActiveModelValue::Set(e) = self {
-            *self = ActiveModelValue::Unchanged(e.clone());
+        if let Self::Set(e) = self {
+            *self = Self::Unchanged(e.clone());
         }
     }
 }
@@ -48,8 +48,7 @@ where
 {
     fn from(value: &'m ActiveModelValue<T, DB>) -> Self {
         match value {
-            ActiveModelValue::Set(e) => Some(e),
-            ActiveModelValue::Unchanged(e) => Some(e),
+            ActiveModelValue::Unchanged(e) | ActiveModelValue::Set(e) => Some(e),
             ActiveModelValue::NotSet(_) => None,
         }
     }

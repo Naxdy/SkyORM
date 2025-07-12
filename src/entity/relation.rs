@@ -1,5 +1,3 @@
-#![allow(clippy::future_not_send)]
-
 use sealed::Sealed;
 use sqlx::{Connection, Database, Executor, IntoArguments, Result};
 

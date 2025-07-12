@@ -1,15 +1,15 @@
 pub mod parse;
 pub mod select;
 
-use std::{fmt::Display, marker::PhantomData, ops::Deref, rc::Rc};
+use std::{fmt::Display, marker::PhantomData, ops::Deref, sync::Arc};
 
 use sqlx::{Database, Encode, QueryBuilder, Type};
 
 /// This trait represents anything that can be pushed into a [`QueryBuilder`], i.e. any kind of
 /// query fragment, like a condition or a list of values.
-pub trait PushToQuery<DB>
+pub trait PushToQuery<DB>: Send + Sync
 where
-    DB: Database,
+    DB: Database + Sync,
 {
     /// Push the object's contents into a query builder.
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>);
@@ -17,16 +17,16 @@ where
 
 impl<DB> PushToQuery<DB> for Box<dyn PushToQuery<DB>>
 where
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.deref().push_to(builder);
     }
 }
 
-impl<DB> PushToQuery<DB> for Rc<dyn PushToQuery<DB>>
+impl<DB> PushToQuery<DB> for Arc<dyn PushToQuery<DB>>
 where
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.deref().push_to(builder);
@@ -35,13 +35,13 @@ where
 
 pub(crate) struct QueryVariable<T, DB>(pub(crate) T, PhantomData<DB>)
 where
-    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
-    DB: Database;
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone + Send + Sync,
+    DB: Database + Sync;
 
 impl<T, DB> QueryVariable<T, DB>
 where
-    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
-    DB: Database,
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone + Send + Sync,
+    DB: Database + Sync,
 {
     pub const fn new(inner: T) -> Self {
         Self(inner, PhantomData)
@@ -50,8 +50,8 @@ where
 
 impl<T, DB> PushToQuery<DB> for QueryVariable<T, DB>
 where
-    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
-    DB: Database,
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone + Send + Sync,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push_bind(self.0.clone());
@@ -60,8 +60,8 @@ where
 
 impl<T, DB> PushToQuery<DB> for Vec<QueryVariable<T, DB>>
 where
-    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone,
-    DB: Database,
+    T: for<'a> Encode<'a, DB> + Type<DB> + 'static + Clone + Send + Sync,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push("(");
@@ -78,12 +78,12 @@ where
 pub(crate) struct BracketsExpr<T, DB>(T, PhantomData<DB>)
 where
     T: PushToQuery<DB>,
-    DB: Database;
+    DB: Database + Sync;
 
 impl<T, DB> BracketsExpr<T, DB>
 where
     T: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     pub(crate) const fn new(inner: T) -> Self {
         Self(inner, PhantomData)
@@ -93,7 +93,7 @@ where
 impl<T, DB> PushToQuery<DB> for BracketsExpr<T, DB>
 where
     T: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push("(");
@@ -151,7 +151,7 @@ pub(crate) struct BinaryExpr<T, C, DB>
 where
     T: PushToQuery<DB>,
     C: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     a: T,
     b: C,
@@ -163,7 +163,7 @@ impl<T, C, DB> BinaryExpr<T, C, DB>
 where
     T: PushToQuery<DB>,
     C: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     pub(crate) const fn new(left: T, right: C, operand: BinaryExprOperand) -> Self {
         Self {
@@ -179,7 +179,7 @@ impl<T, C, DB> PushToQuery<DB> for BinaryExpr<T, C, DB>
 where
     T: PushToQuery<DB>,
     C: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.a.push_to(builder);
@@ -209,7 +209,7 @@ impl Display for SingletonExprOperand {
 pub(crate) struct SingletonExpr<T, DB>
 where
     T: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     inner: T,
     operand: SingletonExprOperand,
@@ -219,7 +219,7 @@ where
 impl<T, DB> SingletonExpr<T, DB>
 where
     T: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     pub const fn new(inner: T, operand: SingletonExprOperand) -> Self {
         Self {
@@ -233,7 +233,7 @@ where
 impl<T, DB> PushToQuery<DB> for SingletonExpr<T, DB>
 where
     T: PushToQuery<DB>,
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         self.inner.push_to(builder);
@@ -243,7 +243,7 @@ where
 
 impl<DB> PushToQuery<DB> for String
 where
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut QueryBuilder<'_, DB>) {
         builder.push(self);

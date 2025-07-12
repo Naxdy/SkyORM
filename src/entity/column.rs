@@ -49,7 +49,7 @@ impl Display for ColumnName {
 
 impl<DB> PushToQuery<DB> for ColumnName
 where
-    DB: Database,
+    DB: Database + Sync,
 {
     fn push_to(&self, builder: &mut sqlx::QueryBuilder<'_, DB>) {
         builder.push(self.to_string());
@@ -140,7 +140,9 @@ pub trait Column {
     type Type: for<'a> Encode<'a, <Self::Entity as Entity>::Database>
         + for<'a> Decode<'a, <Self::Entity as Entity>::Database>
         + Type<<Self::Entity as Entity>::Database>
-        + Clone;
+        + Clone
+        + Send
+        + Sync;
 
     /// The entity that this column belongs to.
     type Entity: Entity;

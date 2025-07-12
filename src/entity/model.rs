@@ -54,7 +54,7 @@ where
     }
 }
 
-pub trait Model: ParseFromRow<<Self::Entity as Entity>::Database> + Sized {
+pub trait Model: Send + Sync + ParseFromRow<<Self::Entity as Entity>::Database> + Sized {
     type Entity: Entity;
     type ActiveModel: ActiveModel;
 

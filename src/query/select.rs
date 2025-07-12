@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, rc::Rc};
+use std::{marker::PhantomData, sync::Arc};
 
 use futures::StreamExt;
 use itertools::Itertools;
@@ -17,7 +17,7 @@ where
     T: Entity + 'static,
 {
     marker: PhantomData<T>,
-    conditions: Vec<Rc<dyn PushToQuery<T::Database>>>,
+    conditions: Vec<Arc<dyn PushToQuery<T::Database>>>,
     additional_tables: Vec<String>,
 }
 
@@ -40,7 +40,7 @@ where
     where
         Q: PushToQuery<T::Database> + 'static,
     {
-        self.conditions.push(Rc::new(condition));
+        self.conditions.push(Arc::new(condition));
         self
     }
 
@@ -56,8 +56,8 @@ where
         C: Column<Entity = R, Type = <T::PrimaryKeyColumn as Column>::Type>,
         <T::PrimaryKeyColumn as Column>::Type: PartialEq,
     {
-        self.conditions.push(Rc::new(condition));
-        self.conditions.push(Rc::new(BinaryExpr::new(
+        self.conditions.push(Arc::new(condition));
+        self.conditions.push(Arc::new(BinaryExpr::new(
             C::full_column_name(),
             <T::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
@@ -78,8 +78,8 @@ where
         C: Column<Entity = T, Type = <R::PrimaryKeyColumn as Column>::Type>,
         <R::PrimaryKeyColumn as Column>::Type: PartialEq,
     {
-        self.conditions.push(Rc::new(condition));
-        self.conditions.push(Rc::new(BinaryExpr::new(
+        self.conditions.push(Arc::new(condition));
+        self.conditions.push(Arc::new(BinaryExpr::new(
             C::full_column_name(),
             <R::PrimaryKeyColumn as Column>::full_column_name(),
             BinaryExprOperand::Equals,
@@ -107,9 +107,6 @@ where
     ///
     /// If no entry could be found, or if there's been a problem communicating with the database.
     /// See [`sqlx::Error`] for more information.
-    // Clippy doesn't understand drop / type params.
-    // See https://github.com/rust-lang/rust/issues/87309
-    #[allow(clippy::future_not_send)]
     pub async fn one<'c, C>(self, connection: &'c mut C) -> Result<T::Model, sqlx::Error>
     where
         C: Connection<Database = T::Database>,
@@ -131,9 +128,6 @@ where
     ///
     /// If there's been a problem communicating with the database. See [`sqlx::Error`] for more
     /// information.
-    // Clippy doesn't understand drop / type params.
-    // See https://github.com/rust-lang/rust/issues/87309
-    #[allow(clippy::future_not_send)]
     pub async fn all<'c, C>(self, connection: &'c mut C) -> Result<Vec<T::Model>, sqlx::Error>
     where
         C: Connection<Database = T::Database>,

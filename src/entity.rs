@@ -8,12 +8,12 @@ use sqlx::Database;
 
 use crate::query::{parse::ParseFromRow, select::Select};
 
-pub trait Entity: Sized {
+pub trait Entity: Send + Sync + Sized {
     type PrimaryKeyColumn: ComparableColumn<Entity = Self>;
 
     type Model: Model + ParseFromRow<Self::Database>;
 
-    type Database: Database;
+    type Database: Database + Sync;
 
     /// The name of this entity's table in the database.
     const TABLE_NAME: &'static str;
